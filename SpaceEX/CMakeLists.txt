@@ -1,42 +1,46 @@
 cmake_minimum_required(VERSION 3.0) # I had problems if I only specified "VERSION 3".
 
-project(SpaceEX)
+project(Space)
 
-#SET(CMAKE_MODULE_PATH "${CMAKE_MODULE_PATH}" ${CMAKE_CURRENT_SOURCE_DIR}/modules)
-SET(CMAKE_MODULE_PATH "${CMAKE_MODULE_PATH}" ${CMAKE_CURRENT_SOURCE_DIR}/../../cmake-modules)
+find_path(COMPONENTS_ROOT PATHS NO_DEFAULT_PATH)
 
-# Show relative paths options
-OPTION(CMAKE_USE_RELATIVE_PATHS "If true, cmake will use relative paths in makefiles and projects." ON)
-MARK_AS_ADVANCED(CMAKE_USE_RELATIVE_PATHS)
+set(CMAKE_MODULE_PATH ${CMAKE_MODULE_PATH} "${COMPONENTS_ROOT}/cmake-modules")
+set(CMAKE_CONFIGURATION_TYPES "Release;Debug" CACHE STRING "" FORCE)
 
-find_path(EXTERNAL_LIBRARY_DIR "glew-1.9.0" HINTS $ENV{EXTERNAL_LIBRARY_DIR} NO_DEFAULT_PATH)
+include(ListSubdirectories)
+include(TargetImportedLibraries) # for Walter's target_package command
 
-if (EXTERNAL_LIBRARY_DIR STREQUAL "EXTERNAL_LIBRARY_DIR-NOTFOUND")  
-  message(STATUS "External Library Directory not found, please specify a folder to look for external libraries")  
-  return()
+###################################################################################################
+# We use an EXTERNAL_LIBRARY_DIR variable as a hint to where all the libraries can be found.
+# This is an optional means to not have to specify each library's root dir directly.
+###################################################################################################
+
+find_path(EXTERNAL_LIBRARY_DIR "glew-1.9.0" HINTS /opt/local/Libraries PATHS $ENV{PATH} $ENV{EXTERNAL_LIBRARY_DIR} NO_DEFAULT_PATH)
+
+# TODO: Make EXTERNAL_LIBRARY_DIR detection optional, since users may not have their libraries
+# installed the same way we (Leap) do.
+if(EXTERNAL_LIBRARY_DIR STREQUAL "EXTERNAL_LIBRARY_DIR-NOTFOUND")
+    message(STATUS "External Library Directory not found, please specify a folder to look for external libraries")
+    return()
 endif()
+
+# CMAKE_PREFIX_PATH is the path used for searching by FIND_XXX(), with appropriate suffixes added.
+# EXTERNAL_LIBRARY_DIR is a hint for all the find_library calls.
+list(INSERT CMAKE_PREFIX_PATH 0 ${EXTERNAL_LIBRARY_DIR})
+
+find_package(Components)
+# TODO: somehow get these library dependencies from the Components target
+# Please keep these in alphabetical order.
+find_package(Eigen 3.1.2)
+find_package(FbxSdk)
+find_package(FreeImage 3)
+find_package(Glew 1.9.0)
+find_package(OpenGL 2.1)
+find_package(SDL 2)
+
 
 # Please keep these in alphabetical order.
 find_package(OculusSDK REQUIRED)
-find_package(Components REQUIRED)
-
-get_target_property(Components_LIBRARIES Components IMPORTED_LOCATION_DEBUG)
-message("Components_LIBRARIES = ${Components_LIBRARIES}")
-
-find_package(Eigen 3.1.2 REQUIRED)
-find_package(FbxSdk REQUIRED)
-find_package(FreeImage REQUIRED)
-find_package(Glew 1.9.0 REQUIRED)
-find_package(OpenGL REQUIRED)
-find_package(SDL 2 REQUIRED)
-
-
-if(${CMAKE_BUILD_TYPE} MATCHES Release)
-    set(FreeImage_LIBRARIES ${FreeImage_LIBRARY_RELEASE})
-else()
-    set(FreeImage_LIBRARIES ${FreeImage_LIBRARY_DEBUG})
-endif()
-message("FreeImage_LIBRARIES = ${FreeImage_LIBRARIES}")
 
 if(WIN32)
     # Where to find Oculus SDK
@@ -49,8 +53,9 @@ endif(WIN32)
 include_directories(
     BEFORE
     ${OCULUS_SDK_INCLUDE_DIRS}
-	${OCULUS_SDK_ROOT_DIR}/LibOVR/Src
+	  ${OCULUS_SDK_ROOT_DIR}/LibOVR/Src
   )
 
 ADD_SUBDIRECTORY(sources)
+
 
