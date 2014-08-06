@@ -2,8 +2,6 @@ cmake_minimum_required(VERSION 3.0) # I had problems if I only specified "VERSIO
 
 project(Space)
 
-find_path(COMPONENTS_ROOT PATHS NO_DEFAULT_PATH)
-
 set(CMAKE_MODULE_PATH ${CMAKE_MODULE_PATH} "${CMAKE_CURRENT_SOURCE_DIR}/cmake-modules")
 set(CMAKE_CONFIGURATION_TYPES "Release;Debug" CACHE STRING "" FORCE)
 
