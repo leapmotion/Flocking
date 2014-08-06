@@ -1,12 +1,18 @@
 set(TARGET_TARGETNAME SpaceApp)
 
-SET(TARGET_SRC
-	ExampleLayer.h
-	ExampleLayer.cpp
-	SpaceEXApplication.h
-	SpaceEXApplication.cpp
-	main.cpp
-   )
+if(OCULUS_SDK)
+	SET(TARGET_SRC
+		main.cpp
+		)
+else(OCULUS_SDK)
+	SET(TARGET_SRC
+		ExampleLayer.h
+		ExampleLayer.cpp
+		SpaceEXApplication.h
+		SpaceEXApplication.cpp
+		main.cpp
+		)
+endif(OCULUS_SDK)
    
 ADD_EXECUTABLE(${TARGET_TARGETNAME} ${TARGET_SRC})
 
@@ -22,6 +28,7 @@ target_package(${TARGET_TARGETNAME} Components)
 target_package(${TARGET_TARGETNAME} Leap)
 
 target_link_libraries(${TARGET_TARGETNAME} winmm.lib
-                                             ${OCULUS_SDK_LIBRARY}
-                                             )
+										   Ws2_32.lib
+                                           ${OCULUS_SDK_LIBRARY}
+                                           )
                                             

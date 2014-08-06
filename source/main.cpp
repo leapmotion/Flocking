@@ -7,18 +7,49 @@
 
 #include "OVR_CAPI_GL.h"
 #include "Kernel/OVR_Math.h"
-#include "SDL.h"
-#include "SDL_syswm.h"
+
+#include "GLController.h"
+#include "SDLController.h"
 
 using namespace OVR;
+
 #else
 #include "SpaceEXApplication.h"
 #endif
 
 int main (int argc, char **argv)
 {
-  #ifdef OCULUS_SDK
-	// Oculus related coe goes here
+   #ifdef OCULUS_SDK
+	SDL_Init(SDL_INIT_VIDEO);
+
+	int x = SDL_WINDOWPOS_CENTERED;
+	int y = SDL_WINDOWPOS_CENTERED;
+	Uint32 flags = SDL_WINDOW_OPENGL | SDL_WINDOW_SHOWN;
+
+	bool debug = false;
+
+	ovr_Initialize();
+	Sizei WindowSize;
+	ovrHmd hmd = ovrHmd_Create(0);
+
+	if (!hmd)
+	{
+		// If we didn't detect an Hmd, create a simulated one for debugging.
+		hmd = ovrHmd_CreateDebug(ovrHmd_DK1);
+		debug = true;
+		if (!hmd)
+		{   // Failed Hmd creation.
+			return 1;
+		}
+	}
+
+	if (debug == false)
+	{
+		x = hmd->WindowsPos.x;
+		y = hmd->WindowsPos.y;
+		flags |= SDL_WINDOW_FULLSCREEN_DESKTOP;
+	}
+	
   #else
 	StubApplication app;
 	// StubApplication::Initialize is what sets everything up,
