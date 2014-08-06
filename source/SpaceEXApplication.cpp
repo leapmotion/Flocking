@@ -1,4 +1,4 @@
-#include "StubApplication.h"
+#include "SpaceEXApplication.h"
 
 #include <cassert>
 
@@ -16,8 +16,16 @@ StubApplication::~StubApplication () {
 }
 
 void StubApplication::Initialize() {
+  SDLControllerParams params;
+  params.transparentWindow = true;
+  params.alwaysOnTop = false;
+  params.fullscreen = false;
+  params.windowTitle = "Stub App";
+  params.antialias = true;
+  params.vsync = true;
+
   m_applicationTime = TimePoint(0.0);         // Start the application time at zero.
-  m_SDLController.Initialize(true);           // This initializes everything SDL-related.
+  m_SDLController.Initialize(params);           // This initializes everything SDL-related.
   m_GLController.Initialize();                // This initializes the general GL state.
   FreeImage_Initialise();                     // Initialize FreeImage.
   if (glewInit() != GLEW_OK) {

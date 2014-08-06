@@ -1,4 +1,4 @@
-#include "StubApplication.h"
+#include "SpaceEXApplication.h"
 
 int main (int argc, char **argv)
 {
