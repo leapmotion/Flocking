@@ -26,21 +26,25 @@ endif()
 # EXTERNAL_LIBRARY_DIR is a hint for all the find_library calls.
 list(INSERT CMAKE_PREFIX_PATH 0 ${EXTERNAL_LIBRARY_DIR})
 
-# Please keep these in alphabetical order.
-find_package(OculusSDK REQUIRED)
+OPTION(OCULUS_SDK "Use Oculus Rift SDK" OFF)
+if(OCULUS_SDK)
+  ADD_DEFINITIONS(-DOCULUS_SDK)
+  # Please keep these in alphabetical order.
+  find_package(OculusSDK REQUIRED)
 
-if(WIN32)
+  if(WIN32)
     # Where to find Oculus SDK
 	SET(OCULUS_SDK_ROOT_DIR $ENV{OCULUS_SDK_ROOT_DIR} CACHE PATH "Path where to find the Oculus SDK")
 	IF(NOT OCULUS_SDK_ROOT_DIR)
 		MESSAGE(FATAL_ERROR "Error: Oculus SDK not found.")
 	ENDIF(NOT OCULUS_SDK_ROOT_DIR)
-endif(WIN32)
+  endif(WIN32)
 
-include_directories(
+  include_directories(
     BEFORE
     ${OCULUS_SDK_INCLUDE_DIRS}
-	  ${OCULUS_SDK_ROOT_DIR}/LibOVR/Src
-  )
+	${OCULUS_SDK_ROOT_DIR}/LibOVR/Src
+   )
+endif(OCULUS_SDK)
 
 ADD_SUBDIRECTORY(source)

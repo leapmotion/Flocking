@@ -8,6 +8,8 @@
 #include <memory>
 #include <vector>
 
+#include "OVR.h"
+
 // Interface class for top-level control of an application.
 class StubApplication : public Application {
 public:
