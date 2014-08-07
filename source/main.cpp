@@ -69,6 +69,11 @@ int main (int argc, char **argv)
 	params.vsync = true;
 
 	m_SDLController.Initialize(params);
+	
+	GLController m_GLController;
+
+	glewInit();
+
 
   #else
 	StubApplication app;
