@@ -5,10 +5,10 @@
 
 #define OVR_OS_WIN32
 
-#include "OVR_CAPI_GL.h"
-#include "Kernel/OVR_Math.h"
-
 #include "GLController.h"
+#include "OVR_CAPI_GL.h"
+
+#include "Kernel/OVR_Math.h"
 #include "SDLController.h"
 
 using namespace OVR;
@@ -50,6 +50,26 @@ int main (int argc, char **argv)
 		flags |= SDL_WINDOW_FULLSCREEN_DESKTOP;
 	}
 	
+	int w = hmd->Resolution.w;
+	int h = hmd->Resolution.h;
+
+	// This block takes care of the SDL related 
+	// initialization and window creation
+	SDLController m_SDLController;
+	SDLControllerParams params;
+	params.windowHeight = h;
+	params.windowWidth = w;
+	params.windowPosX = x;
+	params.windowPosY - y;
+	params.transparentWindow = true;
+	params.alwaysOnTop = false;
+	params.fullscreen = false;
+	params.windowTitle = "Oculus Rift SDL2 OpenGL Demo";
+	params.antialias = true;
+	params.vsync = true;
+
+	m_SDLController.Initialize(params);
+
   #else
 	StubApplication app;
 	// StubApplication::Initialize is what sets everything up,
