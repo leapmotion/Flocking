@@ -70,9 +70,9 @@ int main (int argc, char **argv)
 
 	m_SDLController.Initialize(params);
 	
-	GLController m_GLController;
+	//GLController m_GLController;
 
-	glewInit();
+	//glewInit();
 
 
   #else
