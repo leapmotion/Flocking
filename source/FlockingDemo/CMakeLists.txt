@@ -1,12 +1,12 @@
-cmake_minimum_required(VERSION 3.0) # I had problems if I only specified "VERSION 3".
-
-project(OculusAPPs)
-
-set(CMAKE_MODULE_PATH ${CMAKE_MODULE_PATH} "${CMAKE_CURRENT_SOURCE_DIR}/../../cmake-modules")
-set(CMAKE_CONFIGURATION_TYPES "Release" CACHE STRING "" FORCE)
-
-include(ListSubdirectories)
-include(TargetImportedLibraries)
+#cmake_minimum_required(VERSION 3.0) # I had problems if I only specified "VERSION 3".
+#
+#project(OculusAPPs)
+#
+#set(CMAKE_MODULE_PATH ${CMAKE_MODULE_PATH} "${CMAKE_CURRENT_SOURCE_DIR}/../../cmake-modules")
+#set(CMAKE_CONFIGURATION_TYPES "Release" CACHE STRING "" FORCE)
+#
+#include(ListSubdirectories)
+#include(TargetImportedLibraries)
 
 set(TARGET_TARGETNAME FlockingDemo)
 

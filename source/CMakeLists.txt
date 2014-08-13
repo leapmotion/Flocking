@@ -27,8 +27,27 @@ ADD_EXECUTABLE(${TARGET_TARGETNAME} ${TARGET_SRC})
 target_package(${TARGET_TARGETNAME} Components)
 target_package(${TARGET_TARGETNAME} Leap)
 
-target_link_libraries(${TARGET_TARGETNAME} winmm.lib
-										   Ws2_32.lib
-                                           ${OCULUS_SDK_LIBRARY}
-                                           )
-                                            
+if(OCULUS_SDK)
+  ADD_DEFINITIONS(-DOCULUS_SDK)
+  # Please keep these in alphabetical order.
+  find_package(OculusSDK REQUIRED)
+
+  if(WIN32)
+    # Where to find Oculus SDK
+	SET(OCULUS_SDK_ROOT_DIR $ENV{OCULUS_SDK_ROOT_DIR} CACHE PATH "Path where to find the Oculus SDK")
+	IF(NOT OCULUS_SDK_ROOT_DIR)
+		MESSAGE(FATAL_ERROR "Error: Oculus SDK not found.")
+	ENDIF(NOT OCULUS_SDK_ROOT_DIR)
+  endif(WIN32)
+
+  include_directories(
+    BEFORE
+    ${OCULUS_SDK_INCLUDE_DIRS}
+	${OCULUS_SDK_ROOT_DIR}/LibOVR/Src
+   )
+
+   target_link_libraries(${TARGET_TARGETNAME} winmm.lib
+										      Ws2_32.lib
+                                              ${OCULUS_SDK_LIBRARY}
+                                              )
+endif(OCULUS_SDK)                                           
