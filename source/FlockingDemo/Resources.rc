@@ -1,6 +1,6 @@
 // Microsoft Visual C++ generated resource script.
 //
-#include "..\include\Resources.h"
+#include "Resources.h"
 
 RES_LANTERNGLOW_PNG
 RES_GLOW_PNG

@@ -58,7 +58,7 @@ public:
   void				drawTitle();
   virtual void		draw();
   
-  std::mutex			mMutex;
+  std::mutex		mMutex;
   
   // CAMERA
   SpringCam			mSpringCam;
@@ -97,8 +97,8 @@ public:
   // POSITION/VELOCITY FBOS
   gl::Fbo::Format		mRgba16Format;
   int					mFboDim;
-  ci::Vec2f			mFboSize;
-  ci::Area			mFboBounds;
+  ci::Vec2f				mFboSize;
+  ci::Area				mFboBounds;
   gl::Fbo				mPositionFbos[2];
   gl::Fbo				mVelocityFbos[2];
   int					mThisFbo, mPrevFbo;
@@ -720,7 +720,7 @@ void FlockingApp::draw()
 
   
   if( getElapsedFrames()%60 == 0 ){
-    console() << "FPS = " << getAverageFps() << std::endl;
+	  console() << "FPS = " << getAverageFps() << std::endl;
   }
 }
 

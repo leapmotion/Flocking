@@ -7,6 +7,7 @@
 //
 
 #include "cinder/app/AppBasic.h"
+#include "cinder/app/App.h"
 #include "LeapListener.h"
 
 using namespace ci;
@@ -14,21 +15,23 @@ using namespace ci;
 LeapListener::LeapListener( std::mutex *mutex )
 : Leap::Listener(), mMutex( mutex )
 {
+	cinder::app::console() << "LeapListener" << std::endl;
 }
 
 void LeapListener::onInit(const Leap::Controller& controller) {
-	std::cout << "Initialized" << std::endl;
+	cinder::app::console() << "Initialized" << std::endl;
 }
 
 void LeapListener::onConnect(const Leap::Controller& controller) {
-	std::cout << "Connected" << std::endl;
+	cinder::app::console() << "Connected" << std::endl;
 }
 
 void LeapListener::onDisconnect(const Leap::Controller& controller) {
-	std::cout << "Disconnected" << std::endl;
+	cinder::app::console() << "Disconnected" << std::endl;
 }
 
 void LeapListener::onFrame(const Leap::Controller& controller) {
-	std::lock_guard<std::mutex> lock( *mMutex );
+	std::lock_guard<std::mutex> lock(*mMutex);
+	cinder::app::console() << "." << std::endl;
 	const Leap::Frame frame = controller.frame();
 }
