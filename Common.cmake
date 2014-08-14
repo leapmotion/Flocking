@@ -1,8 +1,3 @@
-cmake_minimum_required(VERSION 3.0) # I had problems if I only specified "VERSION 3".
-
-project(Space)
-
-set(CMAKE_MODULE_PATH ${CMAKE_MODULE_PATH} "${CMAKE_CURRENT_SOURCE_DIR}/cmake-module")
 set(CMAKE_CONFIGURATION_TYPES "Release;Debug" CACHE STRING "" FORCE)
 
 include(ListSubdirectories)
@@ -25,8 +20,3 @@ endif()
 # CMAKE_PREFIX_PATH is the path used for searching by FIND_XXX(), with appropriate suffixes added.
 # EXTERNAL_LIBRARY_DIR is a hint for all the find_library calls.
 list(INSERT CMAKE_PREFIX_PATH 0 ${EXTERNAL_LIBRARY_DIR})
-
-OPTION(OCULUS_SDK "Use Oculus Rift SDK" OFF)
-
-ADD_SUBDIRECTORY(source)
-ADD_SUBDIRECTORY(source/FlockingDemo)
