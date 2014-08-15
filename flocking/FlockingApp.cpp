@@ -23,6 +23,18 @@
 #include "Leap.h"
 #include <iostream>
 
+// OVR SDK 
+#include "OVR.h"
+
+#define OVR_OS_WIN32
+
+#include "OVR_CAPI_GL.h"
+#include "Kernel/OVR_Math.h"
+#include "SDL.h"
+#include "SDL_syswm.h"
+
+using namespace OVR;
+
 using namespace ci;
 using namespace ci::app;
 using namespace std;
@@ -57,6 +69,7 @@ public:
   void				drawBubbles();
   void				drawTitle();
   virtual void		draw();
+  void				CalculateHmdValues();
   
   std::mutex		mMutex;
   
@@ -111,6 +124,29 @@ public:
   bool				mMousePressed;
   
   bool				mInitUpdateCalled;
+
+  // OVR SDK variables 
+  ovrHmd hmd;
+  ovrSizei resolution;
+  ovrSizei w;
+  ovrSizei h;
+
+  // target textures
+  ovrSizei recommendedTex0Size;
+  ovrSizei recommendedTex1Size;
+
+  ovrSizei renderTargetSize;
+
+#if _WIN32
+  HWND m_HWND;
+#endif
+
+  ovrGLTexture  eyeTexture[2];
+  ovrEyeRenderDesc eyeRenderDesc[2];
+  ovrRecti eyeRenderViewport[2];
+
+  ci::gl::Fbo m_HMDFbo;
+
 };
 
 void FlockingApp::prepareSettings( Settings *settings )
@@ -185,6 +221,91 @@ void FlockingApp::setup()
 
 void FlockingApp::initialize()
 {
+ 
+  bool debug = false;
+  
+  ovr_Initialize();
+
+  // ovrHmd handle is actually a pointer to an ovrHmdDesc struct that 
+  // contains information about the HMD and its capabilities, and is 
+  // used to set up rendering.
+  hmd = ovrHmd_Create(0);
+
+  if (!hmd)
+  {
+	  // If we didn't detect an Hmd, create a simulated one for debugging.
+	  hmd = ovrHmd_CreateDebug(ovrHmd_DK2);
+	  debug = true;
+	  if (!hmd)
+	  {   // Failed Hmd creation.
+		  exit(1);
+	  }
+  }
+  else
+  {
+	  // Get some details about the HMD
+	  resolution = hmd->Resolution;
+  }
+
+  //TODO: find a place where to check for the status of the glFrameBuffer
+
+  // Render texture initialization
+  recommendedTex0Size = ovrHmd_GetFovTextureSize(hmd, ovrEye_Left, hmd->DefaultEyeFov[0], 1.0f);
+  recommendedTex1Size = ovrHmd_GetFovTextureSize(hmd, ovrEye_Right, hmd->DefaultEyeFov[1], 1.0f);
+  renderTargetSize.w = recommendedTex0Size.w + recommendedTex1Size.w;
+  renderTargetSize.h = max(recommendedTex0Size.h, recommendedTex1Size.h);
+
+  ovrFovPort eyeFov[2] = { hmd->DefaultEyeFov[0], hmd->DefaultEyeFov[1] };
+
+  eyeRenderViewport[0].Pos  = Vector2i(0, 0);
+  eyeRenderViewport[0].Size = Sizei((renderTargetSize.w/2), renderTargetSize.h);
+  eyeRenderViewport[1].Pos = Vector2i((renderTargetSize.w + 1) / 2, 0);
+  eyeRenderViewport[1].Size = eyeRenderViewport[0].Size;
+
+  ci::gl::Fbo::Format format;
+  format.enableDepthBuffer();
+  format.setSamples(16);
+  m_HMDFbo = ci::gl::Fbo(renderTargetSize.w, renderTargetSize.h, format);
+  std::cout << "Init FBO size: " << m_HMDFbo.getSize() << std::endl;
+
+  eyeTexture[0].OGL.Header.API = ovrRenderAPI_OpenGL;
+  eyeTexture[0].OGL.Header.RenderViewport = eyeRenderViewport[0];
+  eyeTexture[0].OGL.TexId = m_HMDFbo.getTexture().getId();
+  eyeTexture[0].OGL.Header.TextureSize = renderTargetSize;
+  
+  eyeTexture[1] = eyeTexture[0];
+  eyeTexture[1].OGL.Header.RenderViewport = eyeRenderViewport[1];
+
+  ovrGLConfig cfg;
+  cfg.OGL.Header.API = ovrRenderAPI_OpenGL;
+  cfg.OGL.Header.RTSize = renderTargetSize;
+  cfg.OGL.Header.Multisample = 1;
+
+  if (!(hmd->HmdCaps & ovrHmdCap_ExtendDesktop))
+	  ovrHmd_AttachToWindow(hmd, m_HWND, NULL, NULL);
+  
+      cfg.OGL.Window = m_HWND;
+
+  cfg.OGL.DC = NULL;
+
+
+  // Configure rendering
+  
+  ovrHmd_ConfigureRendering(hmd, &cfg.Config,	ovrDistortionCap_Chromatic | 
+												ovrDistortionCap_Vignette | 
+												ovrDistortionCap_TimeWarp | 
+												ovrDistortionCap_Overdrive, 
+												eyeFov, eyeRenderDesc);
+
+  ovrHmd_SetEnabledCaps(hmd,	ovrHmdCap_LowPersistence | 
+								ovrHmdCap_DynamicPrediction);
+
+  ovrHmd_ConfigureTracking(hmd, ovrTrackingCap_Orientation | 
+								ovrTrackingCap_MagYawCorrection | 
+								ovrTrackingCap_Position, 0);
+								
+  ////////////////////////////////////////////////////
+
   gl::disableAlphaBlending();
   gl::disableDepthWrite();
   gl::disableDepthRead();
@@ -822,7 +943,6 @@ void FlockingApp::drawIntoFingerTipsFbo()
   gl::draw( gl::Texture( tipsSurface ) );
   mFingerTipsFbo.unbindFramebuffer();
 }
-
 
 
 CINDER_APP_BASIC( FlockingApp, RendererGl )

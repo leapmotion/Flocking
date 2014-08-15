@@ -27,7 +27,7 @@ find_library(Cinder_LIBRARY_DEBUG "cinder-v120_d.lib" HINTS "${Cinder_LIBRARY_DI
 
 include_directories(
     ${Cinder_ROOT_DIR}/include
-	  ${Cinder_ROOT_DIR}/boost
+	${Cinder_ROOT_DIR}/boost
    )
 
 SET(TARGET_SRC
@@ -78,6 +78,9 @@ target_link_components(${TARGET_TARGETNAME} PUBLIC Application GLController GLSh
 
 target_package(${TARGET_TARGETNAME} Leap LINK_TYPE PUBLIC)
 target_package(${TARGET_TARGETNAME} OculusSDK LINK_TYPE PUBLIC)
+
+#target_package(${TARGET_TARGETNAME} Glew LINK_TYPE PUBLIC)
+#target_package(${TARGET_TARGETNAME} SDL LINK_TYPE PUBLIC)
 
 target_link_libraries(${TARGET_TARGETNAME} PUBLIC winmm.lib) # Oculus's HACK (not ours)
 target_link_libraries(${TARGET_TARGETNAME} PUBLIC	Ws2_32.lib) # Oculus's HACK (not ours)
