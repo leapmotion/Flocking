@@ -39,7 +39,8 @@ using namespace ci;
 using namespace ci::app;
 using namespace std;
 
-#define APP_WIDTH		1280
+//#define APP_WIDTH		1280
+#define APP_WIDTH		500
 #define APP_HEIGHT		720
 #define FBO_DIM			50
 #define P_FBO_DIM		5
@@ -69,7 +70,6 @@ public:
   void				drawBubbles();
   void				drawTitle();
   virtual void		draw();
-  void				CalculateHmdValues();
   
   std::mutex		mMutex;
   
@@ -144,8 +144,17 @@ public:
   ovrGLTexture  eyeTexture[2];
   ovrEyeRenderDesc eyeRenderDesc[2];
   ovrRecti eyeRenderViewport[2];
+  
+  ovrVector3f eyePos;
+  ovrMatrix4f eyeTranslation;
+  ovrMatrix4f modelView;
+  ovrMatrix4f projection;
+  ovrVector3f finalUp;
+  ovrVector3f finalForward;
+  ovrVector3f position;
+  ovrQuatf    orientation;
 
-  ci::gl::Fbo m_HMDFbo;
+  ci::gl::Fbo hmdFbo;
 
 };
 
@@ -224,6 +233,7 @@ void FlockingApp::initialize()
  
   bool debug = false;
   
+  /////////////////////// Initialize OVR //////////////////////////////////////////////////////
   ovr_Initialize();
 
   // ovrHmd handle is actually a pointer to an ovrHmdDesc struct that 
@@ -265,12 +275,12 @@ void FlockingApp::initialize()
   ci::gl::Fbo::Format format;
   format.enableDepthBuffer();
   format.setSamples(16);
-  m_HMDFbo = ci::gl::Fbo(renderTargetSize.w, renderTargetSize.h, format);
-  std::cout << "Init FBO size: " << m_HMDFbo.getSize() << std::endl;
+  hmdFbo = ci::gl::Fbo(renderTargetSize.w, renderTargetSize.h, format);
+  std::cout << "Init FBO size: " << hmdFbo.getSize() << std::endl;
 
   eyeTexture[0].OGL.Header.API = ovrRenderAPI_OpenGL;
   eyeTexture[0].OGL.Header.RenderViewport = eyeRenderViewport[0];
-  eyeTexture[0].OGL.TexId = m_HMDFbo.getTexture().getId();
+  eyeTexture[0].OGL.TexId = hmdFbo.getTexture().getId();
   eyeTexture[0].OGL.Header.TextureSize = renderTargetSize;
   
   eyeTexture[1] = eyeTexture[0];
@@ -284,8 +294,7 @@ void FlockingApp::initialize()
   if (!(hmd->HmdCaps & ovrHmdCap_ExtendDesktop))
 	  ovrHmd_AttachToWindow(hmd, m_HWND, NULL, NULL);
   
-      cfg.OGL.Window = m_HWND;
-
+  cfg.OGL.Window = m_HWND;
   cfg.OGL.DC = NULL;
 
 
@@ -297,14 +306,15 @@ void FlockingApp::initialize()
 												ovrDistortionCap_Overdrive, 
 												eyeFov, eyeRenderDesc);
 
-  ovrHmd_SetEnabledCaps(hmd,	ovrHmdCap_LowPersistence | 
-								ovrHmdCap_DynamicPrediction);
-
-  ovrHmd_ConfigureTracking(hmd, ovrTrackingCap_Orientation | 
-								ovrTrackingCap_MagYawCorrection | 
-								ovrTrackingCap_Position, 0);
-								
-  ////////////////////////////////////////////////////
+  eyePos = OVR::Vector3f(0.0f, 0.0f, 0.0f);
+  eyeTranslation = Matrix4f::Identity();
+  modelView = OVR::Matrix4f::Identity();
+  projection = OVR::Matrix4f::Identity();
+  finalUp = OVR::Vector3f(0, 1, 0);
+  finalForward = OVR::Vector3f(0, 0, -1);
+  position = OVR::Vector3f(0, 0, 0);
+  
+  //////////////////////////////////////////////////////////////////////////////////////////
 
   gl::disableAlphaBlending();
   gl::disableDepthWrite();
