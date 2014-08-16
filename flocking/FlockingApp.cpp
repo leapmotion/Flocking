@@ -565,7 +565,7 @@ void FlockingApp::update()
   gl::disableAlphaBlending();
   gl::disableDepthRead();
   gl::disableDepthWrite();
-  gl::color( Color( 1, 1, 1 ) );
+  gl::color( ci::Color( 1, 1, 1 ) );
 
   drawIntoVelocityFbo();
   drawIntoPositionFbo();
@@ -670,7 +670,7 @@ void FlockingApp::draw()
 	// DRAW LANTERN GLOWS
 	gl::disableDepthWrite();
 	gl::enableAdditiveBlending();
-	gl::color(Color(1, 1, 1));
+	gl::color(ci::Color(1, 1, 1));
 	mLanternGlowTex.bind();
 	mController->drawLanternGlows(mSpringCam.mBillboardRight, mSpringCam.mBillboardUp);
 	drawGlows();
@@ -680,7 +680,7 @@ void FlockingApp::draw()
 	gl::disable(GL_TEXTURE_2D);
 	gl::enableDepthWrite();
 	gl::enableAdditiveBlending();
-	gl::color(Color(1.0f, 1.0f, 1.0f));
+	gl::color(ci::Color(1.0f, 1.0f, 1.0f));
 
 	// DRAW LANTERNS
 	mLanternShader.bind();
@@ -778,7 +778,7 @@ void FlockingApp::drawIntoFingerTipsFbo()
 {
   std::vector<Vec3f> tipPs;	// Positions
   std::vector<float> tipRs;	// Radii
-  std::vector<Color> tipCs;	// Colors
+  std::vector<ci::Color> tipCs;	// Colors
   std::vector<float> tipHs;	// Hues
   
   for( map<uint32_t,FingerTip>::iterator activeIt = mController->mActiveTips.begin(); activeIt != mController->mActiveTips.end(); ++activeIt ){
