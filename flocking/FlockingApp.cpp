@@ -1,5 +1,4 @@
 #include "cinder/app/AppBasic.h"
-#include "cinder/gl/gl.h"
 #include "cinder/gl/Texture.h"
 #include "cinder/gl/TextureFont.h"
 #include "cinder/gl/Fbo.h"
@@ -13,6 +12,7 @@
 #include "cinder/params/Params.h"
 #include "cinder/Thread.h"
 
+#include "cinder/gl/gl.h"
 #include "Resources.h"
 //#include "HodginUtility.h"
 #include "SpringCam.h"
@@ -22,18 +22,11 @@
 #include "LeapListener.h"
 #include "Leap.h"
 #include <iostream>
-
-// OVR SDK 
-#include "OVR.h"
-
-#define OVR_OS_WIN32
-
-#include "OVR_CAPI_GL.h"
-#include "Kernel/OVR_Math.h"
-#include "SDL.h"
-#include "SDL_syswm.h"
-
-using namespace OVR;
+#define __glew_h__
+#include "RenderableEventHandler.h"
+#include "SDLController.h"
+#include "OculusVR.h"
+#include "Primitives.h"
 
 using namespace ci;
 using namespace ci::app;
@@ -69,7 +62,7 @@ public:
   void				drawNebulas();
   void				drawBubbles();
   void				drawTitle();
-  virtual void		draw();
+  virtual void		draw();  //TOD BeginFrame for Oculus
   
   std::mutex		mMutex;
   
@@ -124,37 +117,6 @@ public:
   bool				mMousePressed;
   
   bool				mInitUpdateCalled;
-
-  // OVR SDK variables 
-  ovrHmd hmd;
-  ovrSizei resolution;
-  ovrSizei w;
-  ovrSizei h;
-
-  // target textures
-  ovrSizei recommendedTex0Size;
-  ovrSizei recommendedTex1Size;
-
-  ovrSizei renderTargetSize;
-
-#if _WIN32
-  HWND m_HWND;
-#endif
-
-  ovrGLTexture  eyeTexture[2];
-  ovrEyeRenderDesc eyeRenderDesc[2];
-  ovrRecti eyeRenderViewport[2];
-  
-  ovrVector3f eyePos;
-  ovrMatrix4f eyeTranslation;
-  ovrMatrix4f modelView;
-  ovrMatrix4f projection;
-  ovrVector3f finalUp;
-  ovrVector3f finalForward;
-  ovrVector3f position;
-  ovrQuatf    orientation;
-
-  ci::gl::Fbo hmdFbo;
 
 };
 
@@ -230,92 +192,6 @@ void FlockingApp::setup()
 
 void FlockingApp::initialize()
 {
- 
-  bool debug = false;
-  
-  /////////////////////// Initialize OVR //////////////////////////////////////////////////////
-  ovr_Initialize();
-
-  // ovrHmd handle is actually a pointer to an ovrHmdDesc struct that 
-  // contains information about the HMD and its capabilities, and is 
-  // used to set up rendering.
-  hmd = ovrHmd_Create(0);
-
-  if (!hmd)
-  {
-	  // If we didn't detect an Hmd, create a simulated one for debugging.
-	  hmd = ovrHmd_CreateDebug(ovrHmd_DK2);
-	  debug = true;
-	  if (!hmd)
-	  {   // Failed Hmd creation.
-		  exit(1);
-	  }
-  }
-  else
-  {
-	  // Get some details about the HMD
-	  resolution = hmd->Resolution;
-  }
-
-  //TODO: find a place where to check for the status of the glFrameBuffer
-
-  // Render texture initialization
-  recommendedTex0Size = ovrHmd_GetFovTextureSize(hmd, ovrEye_Left, hmd->DefaultEyeFov[0], 1.0f);
-  recommendedTex1Size = ovrHmd_GetFovTextureSize(hmd, ovrEye_Right, hmd->DefaultEyeFov[1], 1.0f);
-  renderTargetSize.w = recommendedTex0Size.w + recommendedTex1Size.w;
-  renderTargetSize.h = max(recommendedTex0Size.h, recommendedTex1Size.h);
-
-  ovrFovPort eyeFov[2] = { hmd->DefaultEyeFov[0], hmd->DefaultEyeFov[1] };
-
-  eyeRenderViewport[0].Pos  = Vector2i(0, 0);
-  eyeRenderViewport[0].Size = Sizei((renderTargetSize.w/2), renderTargetSize.h);
-  eyeRenderViewport[1].Pos = Vector2i((renderTargetSize.w + 1) / 2, 0);
-  eyeRenderViewport[1].Size = eyeRenderViewport[0].Size;
-
-  ci::gl::Fbo::Format format;
-  format.enableDepthBuffer();
-  format.setSamples(16);
-  hmdFbo = ci::gl::Fbo(renderTargetSize.w, renderTargetSize.h, format);
-  std::cout << "Init FBO size: " << hmdFbo.getSize() << std::endl;
-
-  eyeTexture[0].OGL.Header.API = ovrRenderAPI_OpenGL;
-  eyeTexture[0].OGL.Header.RenderViewport = eyeRenderViewport[0];
-  eyeTexture[0].OGL.TexId = hmdFbo.getTexture().getId();
-  eyeTexture[0].OGL.Header.TextureSize = renderTargetSize;
-  
-  eyeTexture[1] = eyeTexture[0];
-  eyeTexture[1].OGL.Header.RenderViewport = eyeRenderViewport[1];
-
-  ovrGLConfig cfg;
-  cfg.OGL.Header.API = ovrRenderAPI_OpenGL;
-  cfg.OGL.Header.RTSize = renderTargetSize;
-  cfg.OGL.Header.Multisample = 1;
-
-  if (!(hmd->HmdCaps & ovrHmdCap_ExtendDesktop))
-	  ovrHmd_AttachToWindow(hmd, m_HWND, NULL, NULL);
-  
-  cfg.OGL.Window = m_HWND;
-  cfg.OGL.DC = NULL;
-
-
-  // Configure rendering
-  
-  ovrHmd_ConfigureRendering(hmd, &cfg.Config,	ovrDistortionCap_Chromatic | 
-												ovrDistortionCap_Vignette | 
-												ovrDistortionCap_TimeWarp | 
-												ovrDistortionCap_Overdrive, 
-												eyeFov, eyeRenderDesc);
-
-  eyePos = OVR::Vector3f(0.0f, 0.0f, 0.0f);
-  eyeTranslation = Matrix4f::Identity();
-  modelView = OVR::Matrix4f::Identity();
-  projection = OVR::Matrix4f::Identity();
-  finalUp = OVR::Vector3f(0, 1, 0);
-  finalForward = OVR::Vector3f(0, 0, -1);
-  position = OVR::Vector3f(0, 0, 0);
-  
-  //////////////////////////////////////////////////////////////////////////////////////////
-
   gl::disableAlphaBlending();
   gl::disableDepthWrite();
   gl::disableDepthRead();
@@ -751,108 +627,108 @@ void FlockingApp::drawIntoPositionFbo()
 
 void FlockingApp::draw()
 {
-  if( !mInitUpdateCalled ){
-    return;
-  }
-  gl::clear( ColorA( 0.3f, 0.1f, 0.1f, 0.0f ), true );
-  gl::color( ColorA( 1.0f, 1.0f, 1.0f, 1.0f ) );
-  
-  gl::setMatricesWindow( getWindowSize() );
-  gl::setViewport( getWindowBounds() );
-  
-  gl::enableAlphaBlending();
-  gl::enable( GL_TEXTURE_2D );
-  gl::disableDepthRead();
-  gl::disableDepthWrite();
-  
-  mBgTex.bind();
-  gl::drawSolidRect( getWindowBounds() );
-  
-  gl::setMatrices( mSpringCam.getCam() );
-  
-  gl::enableDepthRead();
-  gl::enableDepthWrite();
-  
-  // DRAW PARTICLES
-  mPositionFbos[mPrevFbo].bindTexture( 0 );
-  mPositionFbos[mThisFbo].bindTexture( 1 );
-  mVelocityFbos[mThisFbo].bindTexture( 2 );
-  mFingerTipsFbo.bindTexture( 3 );
-  mShader.bind();
-  mShader.uniform( "prevPosition", 0 );
-  mShader.uniform( "currentPosition", 1 );
-  mShader.uniform( "currentVelocity", 2 );
-  mShader.uniform( "lightsTex", 3 );
-  mShader.uniform( "numLights", (float)mController->mNumTips );
-  mShader.uniform( "invNumLights", 1.0f/(float)MAX_TIPS );
-  mShader.uniform( "invNumLightsHalf", 1.0f/(float)MAX_TIPS * 0.5f );
-  mShader.uniform( "att", 1.15f );
-  mShader.uniform( "eyePos", mSpringCam.mEye );
-  gl::draw( mVboMesh );
-  mShader.unbind();
-  
-  // DRAW LANTERN GLOWS
-  gl::disableDepthWrite();
-  gl::enableAdditiveBlending();
-  gl::color( Color( 1, 1, 1 ) );
-  mLanternGlowTex.bind();
-  mController->drawLanternGlows( mSpringCam.mBillboardRight, mSpringCam.mBillboardUp );
-  drawGlows();
-  drawNebulas();
-  drawBubbles();
-  
-  gl::disable( GL_TEXTURE_2D );
-  gl::enableDepthWrite();
-  gl::enableAdditiveBlending();
-  gl::color( Color( 1.0f, 1.0f, 1.0f ) );
-  
-  // DRAW LANTERNS
-  mLanternShader.bind();
-  mLanternShader.uniform( "mvpMatrix", mSpringCam.mMvpMatrix );
-  mLanternShader.uniform( "eyePos", mSpringCam.mEye );
-  mController->drawLanterns( &mLanternShader );
-  mLanternShader.unbind();
+	if (!mInitUpdateCalled){
+		return;
+	}
+	gl::clear(ColorA(0.3f, 0.1f, 0.1f, 0.0f), true);
+	gl::color(ColorA(1.0f, 1.0f, 1.0f, 1.0f));
 
-  // SCREEN SPACE
-  gl::setMatricesWindow( getWindowSize() );
-  gl::enableAlphaBlending();
-  gl::enable( GL_TEXTURE_2D );
-  gl::disableDepthRead();
-  gl::disableDepthWrite();
-  
-  drawTitle();
-  
-//	if( false ){	// DRAW POSITION AND VELOCITY FBOS
-//		gl::color( Color::white() );
-//		gl::setMatricesWindow( getWindowSize() );
-//		gl::enable( GL_TEXTURE_2D );
-//		mPositionFbos[ mThisFbo ].bindTexture();
-//		gl::drawSolidRect( Rectf( 5.0f, 5.0f, 105.0f, 105.0f ) );
-//		
-//		mPositionFbos[ mPrevFbo ].bindTexture();
-//		gl::drawSolidRect( Rectf( 106.0f, 5.0f, 206.0f, 105.0f ) );
-//		
-//		mVelocityFbos[ mThisFbo ].bindTexture();
-//		gl::drawSolidRect( Rectf( 5.0f, 106.0f, 105.0f, 206.0f ) );
-//		
-//		mVelocityFbos[ mPrevFbo ].bindTexture();
-//		gl::drawSolidRect( Rectf( 106.0f, 106.0f, 206.0f, 206.0f ) );
-//	}
-  
-  mThisFbo	= ( mThisFbo + 1 ) % 2;
-  mPrevFbo	= ( mThisFbo + 1 ) % 2;
-  
-//	if( mSaveFrames ){
-//		writeImage( getHomeDirectory() + "Flocking/" + toString( mNumSavedFrames ) + ".png", copyWindowSurface() );
-//		mNumSavedFrames ++;
-//	}
-  
-  
+	gl::setMatricesWindow(getWindowSize());
+	gl::setViewport(getWindowBounds());
 
-  
-  if( getElapsedFrames()%60 == 0 ){
-	  console() << "FPS = " << getAverageFps() << std::endl;
-  }
+	gl::enableAlphaBlending();
+	gl::enable(GL_TEXTURE_2D);
+	gl::disableDepthRead();
+	gl::disableDepthWrite();
+
+	mBgTex.bind();
+	gl::drawSolidRect(getWindowBounds());
+
+	gl::setMatrices(mSpringCam.getCam());
+
+	gl::enableDepthRead();
+	gl::enableDepthWrite();
+
+	// DRAW PARTICLES
+	mPositionFbos[mPrevFbo].bindTexture(0);
+	mPositionFbos[mThisFbo].bindTexture(1);
+	mVelocityFbos[mThisFbo].bindTexture(2);
+	mFingerTipsFbo.bindTexture(3);
+	mShader.bind();
+	mShader.uniform("prevPosition", 0);
+	mShader.uniform("currentPosition", 1);
+	mShader.uniform("currentVelocity", 2);
+	mShader.uniform("lightsTex", 3);
+	mShader.uniform("numLights", (float)mController->mNumTips);
+	mShader.uniform("invNumLights", 1.0f / (float)MAX_TIPS);
+	mShader.uniform("invNumLightsHalf", 1.0f / (float)MAX_TIPS * 0.5f);
+	mShader.uniform("att", 1.15f);
+	mShader.uniform("eyePos", mSpringCam.mEye);
+	gl::draw(mVboMesh);
+	mShader.unbind();
+
+	// DRAW LANTERN GLOWS
+	gl::disableDepthWrite();
+	gl::enableAdditiveBlending();
+	gl::color(Color(1, 1, 1));
+	mLanternGlowTex.bind();
+	mController->drawLanternGlows(mSpringCam.mBillboardRight, mSpringCam.mBillboardUp);
+	drawGlows();
+	drawNebulas();
+	drawBubbles();
+
+	gl::disable(GL_TEXTURE_2D);
+	gl::enableDepthWrite();
+	gl::enableAdditiveBlending();
+	gl::color(Color(1.0f, 1.0f, 1.0f));
+
+	// DRAW LANTERNS
+	mLanternShader.bind();
+	mLanternShader.uniform("mvpMatrix", mSpringCam.mMvpMatrix);
+	mLanternShader.uniform("eyePos", mSpringCam.mEye);
+	mController->drawLanterns(&mLanternShader);
+	mLanternShader.unbind();
+
+	// SCREEN SPACE
+	gl::setMatricesWindow(getWindowSize());
+	gl::enableAlphaBlending();
+	gl::enable(GL_TEXTURE_2D);
+	gl::disableDepthRead();
+	gl::disableDepthWrite();
+
+	drawTitle();
+
+	//	if( false ){	// DRAW POSITION AND VELOCITY FBOS
+	//		gl::color( Color::white() );
+	//		gl::setMatricesWindow( getWindowSize() );
+	//		gl::enable( GL_TEXTURE_2D );
+	//		mPositionFbos[ mThisFbo ].bindTexture();
+	//		gl::drawSolidRect( Rectf( 5.0f, 5.0f, 105.0f, 105.0f ) );
+	//		
+	//		mPositionFbos[ mPrevFbo ].bindTexture();
+	//		gl::drawSolidRect( Rectf( 106.0f, 5.0f, 206.0f, 105.0f ) );
+	//		
+	//		mVelocityFbos[ mThisFbo ].bindTexture();
+	//		gl::drawSolidRect( Rectf( 5.0f, 106.0f, 105.0f, 206.0f ) );
+	//		
+	//		mVelocityFbos[ mPrevFbo ].bindTexture();
+	//		gl::drawSolidRect( Rectf( 106.0f, 106.0f, 206.0f, 206.0f ) );
+	//	}
+
+	mThisFbo = (mThisFbo + 1) % 2;
+	mPrevFbo = (mThisFbo + 1) % 2;
+
+	//	if( mSaveFrames ){
+	//		writeImage( getHomeDirectory() + "Flocking/" + toString( mNumSavedFrames ) + ".png", copyWindowSurface() );
+	//		mNumSavedFrames ++;
+	//	}
+
+
+
+
+	if (getElapsedFrames() % 60 == 0){
+		console() << "FPS = " << getAverageFps() << std::endl;
+	}
 }
 
 void FlockingApp::drawGlows()
