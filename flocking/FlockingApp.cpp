@@ -144,6 +144,7 @@ public:
   ovrSizei renderTargetSize;
 
   GLuint frameBuffer;
+  GLuint renderBuffer;
   GLuint texture;
 
   ovrRecti m_EyeRenderViewport[2];
@@ -265,6 +266,11 @@ void FlockingApp::initialize()
 	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
 	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
 	glFramebufferTexture2D(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0, GL_TEXTURE_2D, texture, 0);
+
+	glGenRenderbuffers(1, &renderBuffer);
+	glBindRenderbuffer(GL_RENDERBUFFER, renderBuffer);
+	glRenderbufferStorage(GL_RENDERBUFFER, GL_DEPTH_COMPONENT24, renderTargetSize.w, renderTargetSize.h);
+	glFramebufferRenderbuffer(GL_FRAMEBUFFER, GL_DEPTH_ATTACHMENT, GL_RENDERBUFFER, renderBuffer);
 
 	ovrFovPort eyeFov[2] = { m_HMD->DefaultEyeFov[0], m_HMD->DefaultEyeFov[1] };
 
@@ -749,6 +755,7 @@ void FlockingApp::drawIntoPositionFbo()
 
 void FlockingApp::draw()
 {
+
 	if (!mInitUpdateCalled){
 		return;
 	}
