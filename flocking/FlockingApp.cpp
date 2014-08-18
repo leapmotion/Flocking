@@ -22,18 +22,32 @@
 #include "LeapListener.h"
 #include "Leap.h"
 #include <iostream>
+
 #define __glew_h__
-#include "RenderableEventHandler.h"
-#include "SDLController.h"
-#include "OculusVR.h"
-#include "Primitives.h"
+
+#include "OVR.h"
+//#include "Primitives.h"
+
+#define OVR_OS_WIN32
+
+#include "OVR_CAPI_GL.h"
+
+#include "Kernel/OVR_Math.h"
+
+#include <cassert>
+#include <iostream>
+
+//#include "gl_glext_glu.h"
+
+#include <memory>
+#include <vector>
+
 
 using namespace ci;
 using namespace ci::app;
 using namespace std;
 
-//#define APP_WIDTH		1280
-#define APP_WIDTH		500
+#define APP_WIDTH		1280
 #define APP_HEIGHT		720
 #define FBO_DIM			50
 #define P_FBO_DIM		5
@@ -62,7 +76,7 @@ public:
   void				drawNebulas();
   void				drawBubbles();
   void				drawTitle();
-  virtual void		draw();  //TOD BeginFrame for Oculus
+  virtual void		draw();    //BeginFrame for Oculus 
   
   std::mutex		mMutex;
   
@@ -118,11 +132,36 @@ public:
   
   bool				mInitUpdateCalled;
 
+  bool m_Debug;
+  ovrHmd m_HMD;
+
+  int width;
+  int height;
+
+  ovrSizei recommendedTex0Size;
+  ovrSizei recommendedTex1Size;
+
+  ovrSizei renderTargetSize;
+
+  GLuint frameBuffer;
+  GLuint texture;
+
+  ovrRecti m_EyeRenderViewport[2];
+  ovrGLTexture m_EyeTexture[2];
+  ovrGLConfig cfg;
+
+  ovrEyeRenderDesc m_EyeRenderDesc[2];
+
+  ovrPosef m_EyeRenderPose[2];
+  ovrMatrix4f m_EyeProjection[2];
+  ovrVector3f m_EyeTranslation[2];
+  ovrQuatf m_EyeRotation[2];
+
 };
 
 void FlockingApp::prepareSettings( Settings *settings )
 {
-  settings->setWindowSize( APP_WIDTH, APP_HEIGHT );
+  //settings->setWindowSize( APP_WIDTH, APP_HEIGHT );
 }
 
 void FlockingApp::setup()
@@ -192,24 +231,107 @@ void FlockingApp::setup()
 
 void FlockingApp::initialize()
 {
-  gl::disableAlphaBlending();
-  gl::disableDepthWrite();
-  gl::disableDepthRead();
+	m_Debug = false;
+
+	ovr_Initialize();
+
+	m_HMD = ovrHmd_Create(0);
+
+	if (!m_HMD) {
+		m_HMD = ovrHmd_CreateDebug(ovrHmd_DK2);
+		if (!m_HMD) {
+			exit(1);
+		}
+		m_Debug = true;
+	}
+
+	width = m_HMD->Resolution.w;
+	height = m_HMD->Resolution.h;
+
+	recommendedTex0Size = ovrHmd_GetFovTextureSize(m_HMD, ovrEye_Left, m_HMD->DefaultEyeFov[0], 1.0f);
+	recommendedTex1Size = ovrHmd_GetFovTextureSize(m_HMD, ovrEye_Right, m_HMD->DefaultEyeFov[1], 1.0f);
+
+	renderTargetSize.w = recommendedTex0Size.w + recommendedTex1Size.w;
+	renderTargetSize.h = std::max(recommendedTex0Size.h, recommendedTex1Size.h);
+
+	glGenFramebuffers(1, &frameBuffer);
+	glBindFramebuffer(GL_FRAMEBUFFER, frameBuffer);
+	glBindFramebuffer(GL_FRAMEBUFFER, 0);
+
+	
+	glGenTextures(1, &texture);
+	glBindTexture(GL_TEXTURE_2D, texture);
+	glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA, renderTargetSize.w, renderTargetSize.h, 0, GL_RGBA, GL_UNSIGNED_BYTE, NULL);
+	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
+	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
+	glFramebufferTexture2D(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0, GL_TEXTURE_2D, texture, 0);
+
+	ovrFovPort eyeFov[2] = { m_HMD->DefaultEyeFov[0], m_HMD->DefaultEyeFov[1] };
+
+	m_EyeRenderViewport[0].Pos.x = 0;
+	m_EyeRenderViewport[0].Pos.y = 0;
+	m_EyeRenderViewport[0].Size.w = renderTargetSize.w / 2;
+	m_EyeRenderViewport[0].Size.h = renderTargetSize.h;
+	m_EyeRenderViewport[1].Pos.x = (renderTargetSize.w + 1) / 2;
+	m_EyeRenderViewport[1].Pos.y = 0;
+	m_EyeRenderViewport[1].Size = m_EyeRenderViewport[0].Size;
+
+	m_EyeTexture[0].OGL.Header.API = ovrRenderAPI_OpenGL;
+	m_EyeTexture[0].OGL.Header.TextureSize = renderTargetSize;
+	m_EyeTexture[0].OGL.Header.RenderViewport = m_EyeRenderViewport[0];
+	m_EyeTexture[0].OGL.TexId = texture;
+
+	m_EyeTexture[1] = m_EyeTexture[0];
+	m_EyeTexture[1].OGL.Header.RenderViewport = m_EyeRenderViewport[1];
+
+	cfg.OGL.Header.API = ovrRenderAPI_OpenGL;
+	cfg.OGL.Header.RTSize.w = m_HMD->Resolution.w;
+	cfg.OGL.Header.RTSize.h = m_HMD->Resolution.h;
+	cfg.OGL.Header.Multisample = 1;
+
+#if 0 // TODO: pass in native window here
+
+#if defined(OVR_OS_WIN32)
+	if (!(m_HMD->HmdCaps & ovrHmdCap_ExtendDesktop))
+		ovrHmd_AttachToWindow(m_HMD, info.info.win.window, NULL, NULL);
+
+	cfg.OGL.Window = info.info.win.window;
+	cfg.OGL.DC = NULL;
+#elif defined(OVR_OS_LINUX)
+	cfg.OGL.Disp = info.info.x11.display;
+	cfg.OGL.Win = info.info.x11.window;
+#endif
+
+#endif
+	ovrHmd_ConfigureRendering(m_HMD, &cfg.Config, ovrDistortionCap_Chromatic | 
+													ovrDistortionCap_Vignette | 
+													ovrDistortionCap_TimeWarp | 
+													ovrDistortionCap_Overdrive, 
+													eyeFov, m_EyeRenderDesc);
+
+	ovrHmd_SetEnabledCaps(m_HMD, ovrHmdCap_LowPersistence | ovrHmdCap_DynamicPrediction);
+
+	ovrHmd_ConfigureTracking(m_HMD, ovrTrackingCap_Orientation | ovrTrackingCap_MagYawCorrection | ovrTrackingCap_Position, 0);
+
+	gl::disableAlphaBlending();
+	gl::disableDepthWrite();
+	gl::disableDepthRead();
   
-  mFboDim				= FBO_DIM;
-  mFboSize				= Vec2f( (float)mFboDim, (float)mFboDim );
-  mFboBounds			= Area( 0, 0, mFboDim, mFboDim );
-  mPositionFbos[0]	= gl::Fbo( mFboDim, mFboDim, mRgba16Format );
-  mPositionFbos[1]	= gl::Fbo( mFboDim, mFboDim, mRgba16Format );
-  mVelocityFbos[0]	= gl::Fbo( mFboDim, mFboDim, mRgba16Format );
-  mVelocityFbos[1]	= gl::Fbo( mFboDim, mFboDim, mRgba16Format );
+	mFboDim				= FBO_DIM;
+	mFboSize				= Vec2f( (float)mFboDim, (float)mFboDim );
+	mFboBounds			= Area( 0, 0, mFboDim, mFboDim );
+	mPositionFbos[0]	= gl::Fbo( mFboDim, mFboDim, mRgba16Format );
+	mPositionFbos[1]	= gl::Fbo( mFboDim, mFboDim, mRgba16Format );
+	mVelocityFbos[0]	= gl::Fbo( mFboDim, mFboDim, mRgba16Format );
+	mVelocityFbos[1]	= gl::Fbo( mFboDim, mFboDim, mRgba16Format );
   
-  setFboPositions( mPositionFbos[0] );
-  setFboPositions( mPositionFbos[1] );
-  setFboVelocities( mVelocityFbos[0] );
-  setFboVelocities( mVelocityFbos[1] );
+	setFboPositions( mPositionFbos[0] );
+	setFboPositions( mPositionFbos[1] );
+	setFboVelocities( mVelocityFbos[0] );
+	setFboVelocities( mVelocityFbos[1] );
   
-  initVbo();
+	initVbo();
+
 }
 
 void FlockingApp::setFboPositions( gl::Fbo fbo )
@@ -729,6 +851,7 @@ void FlockingApp::draw()
 	if (getElapsedFrames() % 60 == 0){
 		console() << "FPS = " << getAverageFps() << std::endl;
 	}
+
 }
 
 void FlockingApp::drawGlows()
