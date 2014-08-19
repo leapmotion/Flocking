@@ -23,16 +23,22 @@
 #include "Leap.h"
 #include <iostream>
 
-#define __glew_h__
 
+#include "EigenTypes.h"
 #include "OVR.h"
-//#include "Primitives.h"
+#define __glew_h__
+#define __GLEW_H__
+#define GLEW_STATIC
+#include "GL/glew.h"
 
 #define OVR_OS_WIN32
 
 #include "OVR_CAPI_GL.h"
-
 #include "Kernel/OVR_Math.h"
+#include "SDL.h"
+#include "SDL_syswm.h"
+
+using namespace OVR;
 
 #include <cassert>
 #include <iostream>
@@ -46,6 +52,8 @@
 using namespace ci;
 using namespace ci::app;
 using namespace std;
+
+#define          SDK_RENDER 1
 
 #define APP_WIDTH		1280
 #define APP_HEIGHT		720
@@ -76,7 +84,9 @@ public:
   void				drawNebulas();
   void				drawBubbles();
   void				drawTitle();
-  virtual void		draw();    //BeginFrame for Oculus 
+  virtual void		draw(); 
+  void				drawAll();
+
   
   std::mutex		mMutex;
   
@@ -132,8 +142,13 @@ public:
   
   bool				mInitUpdateCalled;
 
+  // OVR SDK //
+
   bool m_Debug;
   ovrHmd m_HMD;
+
+  WindowRef activeWindow;
+  HWND activeHWND;
 
   int width;
   int height;
@@ -154,19 +169,110 @@ public:
   ovrEyeRenderDesc m_EyeRenderDesc[2];
 
   ovrPosef m_EyeRenderPose[2];
-  ovrMatrix4f m_EyeProjection[2];
   ovrVector3f m_EyeTranslation[2];
   ovrQuatf m_EyeRotation[2];
+
+  OVR::Matrix4f m_EyeView[2];
+  OVR::Matrix4f m_EyeProjection[2];
 
 };
 
 void FlockingApp::prepareSettings( Settings *settings )
 {
-  //settings->setWindowSize( APP_WIDTH, APP_HEIGHT );
+  settings->setWindowSize( APP_WIDTH, APP_HEIGHT );
 }
 
 void FlockingApp::setup()
 {
+	m_Debug = false;
+
+	ovr_Initialize();
+
+	m_HMD = ovrHmd_Create(0);
+
+	if (!m_HMD) {
+		m_HMD = ovrHmd_CreateDebug(ovrHmd_DK2);
+		if (!m_HMD) {
+			exit(1);
+		}
+		m_Debug = true;
+	}
+
+	width = m_HMD->Resolution.w;
+	height = m_HMD->Resolution.h;
+
+	recommendedTex0Size = ovrHmd_GetFovTextureSize(m_HMD, ovrEye_Left, m_HMD->DefaultEyeFov[0], 1.0f);
+	recommendedTex1Size = ovrHmd_GetFovTextureSize(m_HMD, ovrEye_Right, m_HMD->DefaultEyeFov[1], 1.0f);
+
+	renderTargetSize.w = recommendedTex0Size.w + recommendedTex1Size.w;
+	renderTargetSize.h = std::max(recommendedTex0Size.h, recommendedTex1Size.h);
+
+	glGenFramebuffers(1, &frameBuffer);
+	glGenTextures(1, &texture);
+
+	glBindFramebuffer(GL_FRAMEBUFFER, frameBuffer);
+	glBindTexture(GL_TEXTURE_2D, texture);
+	
+	glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA, renderTargetSize.w, renderTargetSize.h, 0, GL_RGBA, GL_UNSIGNED_BYTE, NULL);
+	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
+	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
+	glFramebufferTexture2D(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0, GL_TEXTURE_2D, texture, 0);
+
+	glGenRenderbuffers(1, &renderBuffer);
+	glBindRenderbuffer(GL_RENDERBUFFER, renderBuffer);
+	glRenderbufferStorage(GL_RENDERBUFFER, GL_DEPTH_COMPONENT24, renderTargetSize.w, renderTargetSize.h);
+	glFramebufferRenderbuffer(GL_FRAMEBUFFER, GL_DEPTH_ATTACHMENT, GL_RENDERBUFFER, renderBuffer);
+	
+	ovrFovPort eyeFov[2] = { m_HMD->DefaultEyeFov[0], m_HMD->DefaultEyeFov[1] };
+
+	m_EyeRenderViewport[0].Pos.x = 0;
+	m_EyeRenderViewport[0].Pos.y = 0;
+	m_EyeRenderViewport[0].Size.w = renderTargetSize.w / 2;
+	m_EyeRenderViewport[0].Size.h = renderTargetSize.h;
+	m_EyeRenderViewport[1].Pos.x = (renderTargetSize.w + 1) / 2;
+	m_EyeRenderViewport[1].Pos.y = 0;
+	m_EyeRenderViewport[1].Size = m_EyeRenderViewport[0].Size;
+
+	m_EyeTexture[0].OGL.Header.API = ovrRenderAPI_OpenGL;
+	m_EyeTexture[0].OGL.Header.TextureSize = renderTargetSize;
+	m_EyeTexture[0].OGL.Header.RenderViewport = m_EyeRenderViewport[0];
+	m_EyeTexture[0].OGL.TexId = texture;
+
+	m_EyeTexture[1] = m_EyeTexture[0];
+	m_EyeTexture[1].OGL.Header.RenderViewport = m_EyeRenderViewport[1];
+
+	cfg.OGL.Header.API = ovrRenderAPI_OpenGL;
+	cfg.OGL.Header.RTSize.w = m_HMD->Resolution.w;
+	cfg.OGL.Header.RTSize.h = m_HMD->Resolution.h;
+	cfg.OGL.Header.Multisample = 1;
+
+
+#define OVR_OS_WIN32
+
+	activeWindow = getWindow();
+	activeHWND = (HWND)activeWindow.get();
+
+	if (!(m_HMD->HmdCaps & ovrHmdCap_ExtendDesktop))
+		ovrHmd_AttachToWindow(m_HMD, activeHWND, NULL, NULL);
+
+	cfg.OGL.Window = activeHWND;
+	cfg.OGL.DC = NULL;
+
+	ovrHmd_ConfigureRendering(m_HMD, &cfg.Config, ovrDistortionCap_Chromatic |
+		ovrDistortionCap_Vignette |
+		ovrDistortionCap_TimeWarp |
+		ovrDistortionCap_Overdrive,
+		eyeFov, m_EyeRenderDesc);
+
+	ovrHmd_SetEnabledCaps(m_HMD, ovrHmdCap_LowPersistence | 
+								ovrHmdCap_DynamicPrediction);
+
+	ovrHmd_ConfigureTracking(m_HMD, ovrTrackingCap_Orientation | 
+							   ovrTrackingCap_MagYawCorrection | 
+							   ovrTrackingCap_Position, 0);
+
+
+
   // LEAP
   mListener			= new LeapListener( &mMutex );
   mLeapController		= new Leap::Controller();
@@ -232,110 +338,23 @@ void FlockingApp::setup()
 
 void FlockingApp::initialize()
 {
-	m_Debug = false;
-
-	ovr_Initialize();
-
-	m_HMD = ovrHmd_Create(0);
-
-	if (!m_HMD) {
-		m_HMD = ovrHmd_CreateDebug(ovrHmd_DK2);
-		if (!m_HMD) {
-			exit(1);
-		}
-		m_Debug = true;
-	}
-
-	width = m_HMD->Resolution.w;
-	height = m_HMD->Resolution.h;
-
-	recommendedTex0Size = ovrHmd_GetFovTextureSize(m_HMD, ovrEye_Left, m_HMD->DefaultEyeFov[0], 1.0f);
-	recommendedTex1Size = ovrHmd_GetFovTextureSize(m_HMD, ovrEye_Right, m_HMD->DefaultEyeFov[1], 1.0f);
-
-	renderTargetSize.w = recommendedTex0Size.w + recommendedTex1Size.w;
-	renderTargetSize.h = std::max(recommendedTex0Size.h, recommendedTex1Size.h);
-
-	glGenFramebuffers(1, &frameBuffer);
-	glBindFramebuffer(GL_FRAMEBUFFER, frameBuffer);
-	glBindFramebuffer(GL_FRAMEBUFFER, 0);
-
-	
-	glGenTextures(1, &texture);
-	glBindTexture(GL_TEXTURE_2D, texture);
-	glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA, renderTargetSize.w, renderTargetSize.h, 0, GL_RGBA, GL_UNSIGNED_BYTE, NULL);
-	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
-	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
-	glFramebufferTexture2D(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0, GL_TEXTURE_2D, texture, 0);
-
-	glGenRenderbuffers(1, &renderBuffer);
-	glBindRenderbuffer(GL_RENDERBUFFER, renderBuffer);
-	glRenderbufferStorage(GL_RENDERBUFFER, GL_DEPTH_COMPONENT24, renderTargetSize.w, renderTargetSize.h);
-	glFramebufferRenderbuffer(GL_FRAMEBUFFER, GL_DEPTH_ATTACHMENT, GL_RENDERBUFFER, renderBuffer);
-
-	ovrFovPort eyeFov[2] = { m_HMD->DefaultEyeFov[0], m_HMD->DefaultEyeFov[1] };
-
-	m_EyeRenderViewport[0].Pos.x = 0;
-	m_EyeRenderViewport[0].Pos.y = 0;
-	m_EyeRenderViewport[0].Size.w = renderTargetSize.w / 2;
-	m_EyeRenderViewport[0].Size.h = renderTargetSize.h;
-	m_EyeRenderViewport[1].Pos.x = (renderTargetSize.w + 1) / 2;
-	m_EyeRenderViewport[1].Pos.y = 0;
-	m_EyeRenderViewport[1].Size = m_EyeRenderViewport[0].Size;
-
-	m_EyeTexture[0].OGL.Header.API = ovrRenderAPI_OpenGL;
-	m_EyeTexture[0].OGL.Header.TextureSize = renderTargetSize;
-	m_EyeTexture[0].OGL.Header.RenderViewport = m_EyeRenderViewport[0];
-	m_EyeTexture[0].OGL.TexId = texture;
-
-	m_EyeTexture[1] = m_EyeTexture[0];
-	m_EyeTexture[1].OGL.Header.RenderViewport = m_EyeRenderViewport[1];
-
-	cfg.OGL.Header.API = ovrRenderAPI_OpenGL;
-	cfg.OGL.Header.RTSize.w = m_HMD->Resolution.w;
-	cfg.OGL.Header.RTSize.h = m_HMD->Resolution.h;
-	cfg.OGL.Header.Multisample = 1;
-
-#if 0 // TODO: pass in native window here
-
-#if defined(OVR_OS_WIN32)
-	if (!(m_HMD->HmdCaps & ovrHmdCap_ExtendDesktop))
-		ovrHmd_AttachToWindow(m_HMD, info.info.win.window, NULL, NULL);
-
-	cfg.OGL.Window = info.info.win.window;
-	cfg.OGL.DC = NULL;
-#elif defined(OVR_OS_LINUX)
-	cfg.OGL.Disp = info.info.x11.display;
-	cfg.OGL.Win = info.info.x11.window;
-#endif
-
-#endif
-	ovrHmd_ConfigureRendering(m_HMD, &cfg.Config, ovrDistortionCap_Chromatic | 
-													ovrDistortionCap_Vignette | 
-													ovrDistortionCap_TimeWarp | 
-													ovrDistortionCap_Overdrive, 
-													eyeFov, m_EyeRenderDesc);
-
-	ovrHmd_SetEnabledCaps(m_HMD, ovrHmdCap_LowPersistence | ovrHmdCap_DynamicPrediction);
-
-	ovrHmd_ConfigureTracking(m_HMD, ovrTrackingCap_Orientation | ovrTrackingCap_MagYawCorrection | ovrTrackingCap_Position, 0);
-
 	gl::disableAlphaBlending();
 	gl::disableDepthWrite();
 	gl::disableDepthRead();
-  
-	mFboDim				= FBO_DIM;
-	mFboSize				= Vec2f( (float)mFboDim, (float)mFboDim );
-	mFboBounds			= Area( 0, 0, mFboDim, mFboDim );
-	mPositionFbos[0]	= gl::Fbo( mFboDim, mFboDim, mRgba16Format );
-	mPositionFbos[1]	= gl::Fbo( mFboDim, mFboDim, mRgba16Format );
-	mVelocityFbos[0]	= gl::Fbo( mFboDim, mFboDim, mRgba16Format );
-	mVelocityFbos[1]	= gl::Fbo( mFboDim, mFboDim, mRgba16Format );
-  
-	setFboPositions( mPositionFbos[0] );
-	setFboPositions( mPositionFbos[1] );
-	setFboVelocities( mVelocityFbos[0] );
-	setFboVelocities( mVelocityFbos[1] );
-  
+
+	mFboDim = FBO_DIM;
+	mFboSize = Vec2f((float)mFboDim, (float)mFboDim);
+	mFboBounds = Area(0, 0, mFboDim, mFboDim);
+	mPositionFbos[0] = gl::Fbo(mFboDim, mFboDim, mRgba16Format);
+	mPositionFbos[1] = gl::Fbo(mFboDim, mFboDim, mRgba16Format);
+	mVelocityFbos[0] = gl::Fbo(mFboDim, mFboDim, mRgba16Format);
+	mVelocityFbos[1] = gl::Fbo(mFboDim, mFboDim, mRgba16Format);
+
+	setFboPositions(mPositionFbos[0]);
+	setFboPositions(mPositionFbos[1]);
+	setFboVelocities(mVelocityFbos[0]);
+	setFboVelocities(mVelocityFbos[1]);
+
 	initVbo();
 
 }
@@ -670,34 +689,38 @@ void FlockingApp::keyDown( KeyEvent event )
 
 void FlockingApp::update()
 {
-  if( !mInitUpdateCalled ){
-    mInitUpdateCalled = true;
-  }
-  
-  { // LEAP
-    std::lock_guard<std::mutex> lock( mMutex );
-    const Leap::Frame frame = mLeapController->frame();
-    // CONTROLLER
-    mController->updateLeap( frame.hands() );
-  }
-  
-  // CONTROLLER
-  mController->update();
-  
-  // CAMERA
-  if( mMousePressed ){
-    mSpringCam.dragCam( ( mMouseOffset ) * 0.01f, ( mMouseOffset ).length() * 0.01f );
-  }
-  mSpringCam.update( 0.3f );
-  
-  gl::disableAlphaBlending();
-  gl::disableDepthRead();
-  gl::disableDepthWrite();
-  gl::color( ci::Color( 1, 1, 1 ) );
+	if (!mInitUpdateCalled)
+	{
+		mInitUpdateCalled = true;
+	}
 
-  drawIntoVelocityFbo();
-  drawIntoPositionFbo();
-  drawIntoFingerTipsFbo();
+	
+
+	{ // LEAP
+		std::lock_guard<std::mutex> lock(mMutex);
+		const Leap::Frame frame = mLeapController->frame();
+		// CONTROLLER
+		mController->updateLeap(frame.hands());
+	}
+
+	// CONTROLLER
+	mController->update();
+
+	// CAMERA
+	if (mMousePressed){
+		mSpringCam.dragCam((mMouseOffset)* 0.01f, (mMouseOffset).length() * 0.01f);
+	}
+	mSpringCam.update(0.3f);
+
+	gl::disableAlphaBlending();
+	gl::disableDepthRead();
+	gl::disableDepthWrite();
+	gl::color(ci::Color(1, 1, 1));
+
+	drawIntoVelocityFbo();
+	drawIntoPositionFbo();
+	drawIntoFingerTipsFbo();
+
 }
 
 
@@ -753,9 +776,8 @@ void FlockingApp::drawIntoPositionFbo()
   mPositionFbos[ mThisFbo ].unbindFramebuffer();
 }
 
-void FlockingApp::draw()
+void FlockingApp::drawAll()
 {
-
 	if (!mInitUpdateCalled){
 		return;
 	}
@@ -799,7 +821,7 @@ void FlockingApp::draw()
 	// DRAW LANTERN GLOWS
 	gl::disableDepthWrite();
 	gl::enableAdditiveBlending();
-	gl::color(ci::Color(1, 1, 1));
+	gl::color(Color(1, 1, 1));
 	mLanternGlowTex.bind();
 	mController->drawLanternGlows(mSpringCam.mBillboardRight, mSpringCam.mBillboardUp);
 	drawGlows();
@@ -809,7 +831,7 @@ void FlockingApp::draw()
 	gl::disable(GL_TEXTURE_2D);
 	gl::enableDepthWrite();
 	gl::enableAdditiveBlending();
-	gl::color(ci::Color(1.0f, 1.0f, 1.0f));
+	gl::color(Color(1.0f, 1.0f, 1.0f));
 
 	// DRAW LANTERNS
 	mLanternShader.bind();
@@ -858,7 +880,52 @@ void FlockingApp::draw()
 	if (getElapsedFrames() % 60 == 0){
 		console() << "FPS = " << getAverageFps() << std::endl;
 	}
+}
 
+void FlockingApp::draw()
+{
+	ovrHmd_BeginFrame(m_HMD, 0);
+
+	static OVR::Vector3f HeadPos(0.0f, 1.6f, -5.0f);
+	HeadPos.y = ovrHmd_GetFloat(m_HMD, OVR_KEY_EYE_HEIGHT, HeadPos.y);
+
+
+	glBindFramebuffer(GL_FRAMEBUFFER, frameBuffer);
+
+	for (int eyeIndex = 0; eyeIndex < ovrEye_Count; eyeIndex++)
+	{
+		ovrEyeType eye = m_HMD->EyeRenderOrder[eyeIndex];
+		m_EyeRenderPose[eye] = ovrHmd_GetEyePose(m_HMD, eye);
+		m_EyeProjection[eye] = ovrMatrix4f_Projection(m_EyeRenderDesc[eye].Fov, 0.1f, 10000.0f, true);
+
+		const OVR::Matrix4f rollPitchYaw = OVR::Matrix4f::RotationY(0);
+		const OVR::Matrix4f finalRollPitchYaw = rollPitchYaw * OVR::Matrix4f(m_EyeRenderPose[eye].Orientation);
+		const OVR::Vector3f finalUp = finalRollPitchYaw.Transform(OVR::Vector3f(0, 1, 0));
+		const OVR::Vector3f finalForward = finalRollPitchYaw.Transform(OVR::Vector3f(0, 0, -1));
+		const OVR::Vector3f shiftedEyePos = HeadPos + rollPitchYaw.Transform(m_EyeRenderPose[eye].Position);
+		const OVR::Matrix4f view = OVR::Matrix4f::LookAtRH(shiftedEyePos, shiftedEyePos + finalForward, finalUp);
+		m_EyeView[eye] = OVR::Matrix4f::Translation(m_EyeRenderDesc[eye].ViewAdjust) * view;
+	}
+
+	glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
+
+	for (int eyeIndex = 0; eyeIndex < 2; eyeIndex++)
+	{
+		const ovrRecti& rect = m_EyeRenderViewport[eyeIndex];
+		const Matrix4x4f proj = Matrix4x4f(&m_EyeProjection[eyeIndex].Transposed().M[0][0]);
+		const Matrix4x4f view = Matrix4x4f(&m_EyeView[eyeIndex].Transposed().M[0][0]);
+
+		glViewport(rect.Pos.x, rect.Pos.y, rect.Size.w, rect.Size.h);
+
+		drawAll();
+
+	}
+
+	// Unbind the FBO back to normal drawing
+	glBindFramebuffer(GL_FRAMEBUFFER, 0);
+
+	ovrHmd_EndFrame(m_HMD, m_EyeRenderPose, &m_EyeTexture[0].Texture);
+	//sleep(100000);
 }
 
 void FlockingApp::drawGlows()
