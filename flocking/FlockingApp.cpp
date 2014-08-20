@@ -282,7 +282,7 @@ void FlockingApp::setup()
   mSpringCam			= SpringCam( 100.0f, getWindowAspectRatio() );
   
   // POSITION/VELOCITY FBOS
-  mRgba16Format.setColorInternalFormat( GL_RGBA16F_ARB );
+  mRgba16Format.setColorInternalFormat( GL_RGBA32F_ARB );
   mRgba16Format.setMinFilter( GL_NEAREST );
   mRgba16Format.setMagFilter( GL_NEAREST );
   mThisFbo				= 0;
