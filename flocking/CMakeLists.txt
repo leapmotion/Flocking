@@ -82,7 +82,8 @@ target_package(${TARGET_TARGETNAME} OculusSDK LINK_TYPE PUBLIC)
 
 target_package(${TARGET_TARGETNAME} Glew LINK_TYPE PUBLIC)
 target_package(${TARGET_TARGETNAME} SDL LINK_TYPE PUBLIC)
-target_package(${TARGET_TARGETNAME} Eigen LINK_TYPE PUBLIC)
+
+include_directories(${EXTERNAL_LIBRARY_DIR}/eigen-3.2.1/Eigen)
 
 target_link_libraries(${TARGET_TARGETNAME} PUBLIC winmm.lib) # Oculus's HACK (not ours)
 target_link_libraries(${TARGET_TARGETNAME} PUBLIC	Ws2_32.lib) # Oculus's HACK (not ours)
