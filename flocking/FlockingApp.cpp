@@ -827,30 +827,10 @@ void FlockingApp::draw()
   
   glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
 
-  for (int i=0; i<2; i++) {
-    const ovrRecti& rect = m_Oculus.EyeViewport(i);
-    const Matrix4x4f proj = m_Oculus.EyeProjection(i);
-    const Matrix4x4f view = m_Oculus.EyeView(i);
+  for (int i=0; i<2; i++) 
+  {
+    drawAll();
 
-    glViewport(rect.Pos.x, rect.Pos.y, rect.Size.w, rect.Size.h);
-
-    glMatrixMode(GL_PROJECTION);
-    glLoadMatrixf(proj.data());
-
-    glMatrixMode(GL_MODELVIEW);
-    glLoadMatrixf(view.data());
-
-    glColor3f(1, 1, 1);
-    glBegin(GL_LINES);
-    for (double x = -100; x <= 100; x+=5) {
-      for (double y = -100; y <= 100; y+=5) {
-        glVertex3d(x, 0, -100);
-        glVertex3d(x, 0, 100);
-        glVertex3d(-100, 0, y);
-        glVertex3d(100, 0, y);
-      }
-    }
-    glEnd();
   }
 
   m_Oculus.EndFrame();
