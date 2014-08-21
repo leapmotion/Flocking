@@ -54,6 +54,7 @@ SET(TARGET_SRC
   FingerTip.h   
   Nebula.h        
   Room.h
+  FlockingApp.h
 )
 
 set_source_files_properties( Resources.rc PROPERTIES LANGUAGE RC )
@@ -71,18 +72,18 @@ STRING (REGEX REPLACE "/RTC(su|[1su])" "" CMAKE_CXX_FLAGS_DEBUG "${CMAKE_CXX_FLA
 set(CMAKE_EXE_LINKER_FLAGS "${CMAKE_EXE_LINKER_FLAGS} /LIBPATH:${Cinder_LIBRARY_DIR}") # Cinder's HACK: Needed to find the boost libraries
 set(CMAKE_EXE_LINKER_FLAGS_DEBUG "${CMAKE_EXE_LINKER_FLAGS_DEBUG} /NODEFAULTLIB:LIBCMT") #  Cinder's HACK: This is in platform too so it's probably good
 
-#find_package(Components)
+find_package(Components)
 # The target_link_components function finds and links exactly the minimal set of libraries
 # needed by the specified components.
 #target_link_components(${TARGET_TARGETNAME} PUBLIC Application GLController GLShaderLoader GLTexture2Loader )
-#target_link_components(${TARGET_TARGETNAME} PUBLIC Application GLController GLShaderLoader OculusVR Primitives SDLController)
+target_link_components(${TARGET_TARGETNAME} PUBLIC Application GLController GLShaderLoader OculusVR Primitives SFMLController)
 
 target_package(${TARGET_TARGETNAME} Leap LINK_TYPE PUBLIC)
 target_package(${TARGET_TARGETNAME} OculusSDK LINK_TYPE PUBLIC)
 
-target_package(${TARGET_TARGETNAME} Glew LINK_TYPE PUBLIC)
-target_package(${TARGET_TARGETNAME} SDL LINK_TYPE PUBLIC)
-target_package(${TARGET_TARGETNAME} Eigen LINK_TYPE PUBLIC)
+#target_package(${TARGET_TARGETNAME} Glew LINK_TYPE PUBLIC)
+#target_package(${TARGET_TARGETNAME} SDL LINK_TYPE PUBLIC)
+#target_package(${TARGET_TARGETNAME} Eigen LINK_TYPE PUBLIC)
 
 target_link_libraries(${TARGET_TARGETNAME} PUBLIC winmm.lib) # Oculus's HACK (not ours)
 target_link_libraries(${TARGET_TARGETNAME} PUBLIC	Ws2_32.lib) # Oculus's HACK (not ours)
