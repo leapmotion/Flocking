@@ -49,6 +49,8 @@ using namespace OVR;
 #include "GLController.h"
 #include "OculusVR.h"
 
+using namespace OVR;
+
 #include <cassert>
 #include <iostream>
 
@@ -94,7 +96,7 @@ public:
   void				drawBubbles();
   void				drawTitle();
   virtual void		draw(); 
-  void				drawAll();
+  void				    renderEyeView(int eyeIndex);
 
   
   std::mutex		mMutex;
@@ -208,6 +210,28 @@ void FlockingApp::setup()
 
   if (!m_Oculus.Init()) {
     throw std::runtime_error("Oculus initialization failed");
+  }
+
+  ovrHSWDisplayState hswDisplayState;
+  ovrHmd_GetHSWDisplayState(m_Oculus.m_HMD, &hswDisplayState);
+  if (hswDisplayState.Displayed)
+  {
+    // Dismiss the warning
+      ovrHmd_DismissHSWDisplay(m_Oculus.m_HMD);
+  }
+  else
+  {
+    // Detect a moderate tap on the side of the HMD.
+    ovrTrackingState ts = ovrHmd_GetTrackingState(m_Oculus.m_HMD, ovr_GetTimeInSeconds());
+    if (ts.StatusFlags & ovrStatus_OrientationTracked)
+    {
+      const OVR::Vector3f v(ts.RawSensorData.Accelerometer.x,
+      ts.RawSensorData.Accelerometer.y,
+      ts.RawSensorData.Accelerometer.z);
+      // Arbitrary value and representing moderate tap on the side of the DK2 Rift.
+      if (v.LengthSq() > 250.f)
+        ovrHmd_DismissHSWDisplay(m_Oculus.m_HMD);
+    }
   }
 
   // LEAP
@@ -713,7 +737,7 @@ void FlockingApp::drawIntoPositionFbo()
   mPositionFbos[ mThisFbo ].unbindFramebuffer();
 }
 
-void FlockingApp::drawAll()
+void FlockingApp::renderEyeView(int eyeIndex)
 {
 	if (!mInitUpdateCalled){
 		return;
@@ -821,26 +845,32 @@ void FlockingApp::drawAll()
 
 void FlockingApp::draw()
 {
+  if (!mInitUpdateCalled){
+		return;
+	}
+
   m_GLController.BeginRender();
   m_Oculus.BeginFrame();
 
   
   glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
 
-  for (int i=0; i<2; i++) 
+  // Shared render target eye rendering; set up RT once for both eyes.
+  for (int eyeIndex = 0; eyeIndex < ovrEye_Count; eyeIndex++)
   {
-    drawAll();
+    const ovrRecti& rect = m_Oculus.EyeViewport(eyeIndex);
+    const Matrix4x4f proj = m_Oculus.EyeProjection(eyeIndex);
+    const Matrix4x4f view = m_Oculus.EyeView(eyeIndex);
 
+    renderEyeView(eyeIndex);
   }
 
   m_Oculus.EndFrame();
 
-#if 0 // for SDK rendering, disable our buffer swap
+//#if 0 // for SDK rendering, disable our buffer swap
   m_GLController.EndRender();                 // NOTE: ALL RENDERING should go between here and BeginRender().
   m_SFMLController.EndRender();
-#endif
-
-  m_GLController.EndRender();
+//#endif
 }
 
 void FlockingApp::drawGlows()
