@@ -633,12 +633,14 @@ void FlockingApp::update()
 		mInitUpdateCalled = true;
 	}
 
-	
+
+  const Matrix4x4f invRotation = m_Oculus.EyeRotation(0).inverse();
 
 	{ // LEAP
 		std::lock_guard<std::mutex> lock(mMutex);
 		const Leap::Frame frame = mLeapController->frame();
 		// CONTROLLER
+    mController->m_invRot = ci::Matrix44f(invRotation.data());
 		mController->updateLeap(frame.hands());
 	}
 

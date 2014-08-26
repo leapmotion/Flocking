@@ -35,7 +35,8 @@ public:
 	void addGlows( FingerTip *tip, int amt );
 	void addNebulas( FingerTip *tip, int amt );
 	void addBubbles( const ci::Vec3f &pos );
-	
+  ci::Vec3f transformPos(const Leap::Vector& tipPos) const;
+
 	std::map<uint32_t,FingerTip>	mActiveTips;
 	std::list<FingerTip>			mDyingTips;
 	
@@ -54,6 +55,8 @@ public:
 	std::vector<Glow>		mGlows;
 	std::vector<Nebula>		mNebulas;
 	std::vector<Bubble>		mBubbles;
+
+  ci::Matrix44f m_invRot;
 };
 
 //bool depthSortFunc( Lantern a, Lantern b );

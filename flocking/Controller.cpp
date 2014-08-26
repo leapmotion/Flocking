@@ -14,8 +14,6 @@
 using namespace ci;
 using namespace std;
 
-const static float SCALE = 0.4f;
-
 Controller::Controller( int maxTips )
 {
 	mMaxTips	= maxTips;
@@ -67,6 +65,16 @@ void Controller::updatePredatorBodies( gl::Fbo *fbo )
 //	fbo->unbindFramebuffer();
 }
 
+ci::Vec3f Controller::transformPos(const Leap::Vector& tipPos) const {
+#if 0
+  const static float SCALE = 0.4f;
+  return Vec3f(tipPos.x, tipPos.y - 200.0f, tipPos.z + 100.0f) * SCALE;
+#else
+  const static float SCALE = 1.0f;
+  return m_invRot.transformPoint(Vec3f(-tipPos.x, -tipPos.z, -tipPos.y)) * SCALE;
+#endif
+}
+
 void Controller::updateLeap( const Leap::HandList &handList )
 {
 	map<uint32_t,bool>	foundIds;
@@ -92,7 +100,7 @@ void Controller::updateLeap( const Leap::HandList &handList )
 					const Leap::Finger& finger	= fingers[i];
 					uint32_t id					= finger.id();
 					const Leap::Vector& tipPos	= finger.tipPosition();
-					Vec3f pos = Vec3f( tipPos.x, tipPos.y - 200.0f, tipPos.z + 100.0f ) * SCALE;
+          Vec3f pos = transformPos(tipPos);
 //					const Leap::Vector *vel = finger.velocity();
 					
 					if( mActiveLeapPs.find( id ) == mActiveLeapPs.end() ){
