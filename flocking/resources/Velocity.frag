@@ -22,7 +22,7 @@ void reactToLanterns( inout vec3 acc, inout float crowded, vec3 _myPos )
 		vec3 pos		= LANTERN.xyz;
 		float radius	= LANTERN.w;
 		float minRad	= ( radius + 35.0 ) * ( radius + 35.0 );	// 50.0
-		float maxRad	= ( radius + 200.0 ) * ( radius + 200.0 ); // + 700.0
+		float maxRad	= ( radius + 400.0 ) * ( radius + 400.0 ); // + 700.0
 		
 		vec3 dirToLantern		= _myPos - pos;
 		float distToLantern		= length( dirToLantern );
@@ -31,7 +31,7 @@ void reactToLanterns( inout vec3 acc, inout float crowded, vec3 _myPos )
 		if( AGGRO > 0.0 ){	// ATTRACTED TO LIGHT
 			if( distToLanternSqrd > minRad && distToLanternSqrd < maxRad ){
 				float distPer = ( ( maxRad - minRad ) / ( distToLanternSqrd ) );
-				float speedPer = 0.0375/( numLights + 1.0 );
+				float speedPer = 0.04/( numLights + 1.0 );
 				acc -= normalize( dirToLantern ) * distPer * speedPer * dt; // * 0.01075
 			}
 		} else {			// REPELLED BY LIGHT
