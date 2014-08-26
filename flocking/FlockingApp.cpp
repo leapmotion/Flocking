@@ -845,6 +845,12 @@ void FlockingApp::draw()
   mPrevFbo = (mThisFbo + 1) % 2;
 
   m_Oculus.EndFrame();
+
+  static bool first = true;
+  if (first && ci::app::getElapsedSeconds() > 1.0) {
+    initialize();
+    first = false;
+  }
 }
 
 void FlockingApp::drawGlows()
