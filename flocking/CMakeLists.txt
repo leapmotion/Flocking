@@ -54,7 +54,6 @@ SET(TARGET_SRC
   FingerTip.h   
   Nebula.h        
   Room.h
-  FlockingApp.h
 )
 
 set_source_files_properties( Resources.rc PROPERTIES LANGUAGE RC )
