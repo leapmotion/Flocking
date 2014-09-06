@@ -70,20 +70,21 @@ using namespace std;
 #define P_FBO_DIM		5
 #define MAX_TIPS		10
 
-class FlockingApp : public AppBasic {
+class FlockingApp : public AppBasic
+{
 public:
-  virtual void		prepareSettings( Settings *settings );
+  virtual void		prepareSettings(Settings *settings);
   virtual void		setup();
-  void				adjustFboDim( int offset );
+  void				adjustFboDim(int offset);
   void				initialize();
-  void				setFboPositions( gl::Fbo fbo );
-  void				setFboVelocities( gl::Fbo fbo );
+  void				setFboPositions(gl::Fbo fbo);
+  void				setFboVelocities(gl::Fbo fbo);
   void				initVbo();
-  virtual void		mouseDown( MouseEvent event );
-  virtual void		mouseUp( MouseEvent event );
-  virtual void		mouseMove( MouseEvent event );
-  virtual void		mouseDrag( MouseEvent event );
-  virtual void		keyDown( KeyEvent event );
+  virtual void		mouseDown(MouseEvent event);
+  virtual void		mouseUp(MouseEvent event);
+  virtual void		mouseMove(MouseEvent event);
+  virtual void		mouseDrag(MouseEvent event);
+  virtual void		keyDown(KeyEvent event);
   virtual void		update();
   void				updateLeap();
   void				drawIntoVelocityFbo();
@@ -93,14 +94,14 @@ public:
   void				drawNebulas();
   void				drawBubbles();
   void				drawTitle();
-  virtual void		draw(); 
+  virtual void		draw();
   void				    renderEyeView(int eyeIndex);
 
   EIGEN_MAKE_ALIGNED_OPERATOR_NEW
 
-  
+
   std::mutex		mMutex;
-  
+
   // TEXTURES
   gl::Texture			mLanternGlowTex;
   gl::Texture			mGlowTex;
@@ -108,7 +109,7 @@ public:
   gl::Texture			mBubbleTex;
   gl::Texture			mBgTex;
   gl::Texture			mTitleTex;
-  
+
   // SHADERS
   gl::GlslProg		mVelocityShader;
   gl::GlslProg		mPositionShader;
@@ -117,21 +118,21 @@ public:
   gl::GlslProg		mShader;
   gl::GlslProg		mGlowShader;
   gl::GlslProg		mNebulaShader;
-  
+
   // LEAP
   LeapListener		*mListener;
   Leap::Controller	*mLeapController;
-  
+
   // CONTROLLER
   Controller			*mController;
-  
+
   // FINGERTIPS FBO (point lights)
   gl::Fbo				mFingerTipsFbo;
-  
+
   // VBOS
   gl::VboMesh			mVboMesh;
   gl::VboMesh			mP_VboMesh;
-  
+
   // POSITION/VELOCITY FBOS
   gl::Fbo::Format		mRgba16Format;
   int					mFboDim;
@@ -140,14 +141,14 @@ public:
   gl::Fbo				mPositionFbos[2];
   gl::Fbo				mVelocityFbos[2];
   int					mThisFbo, mPrevFbo;
-  
+
   // PERLIN
   Perlin				mPerlin;
-  
+
   // MOUSE
   Vec2f				mMousePos, mMouseDownPos, mMouseOffset;
   bool				mMousePressed;
-  
+
   bool				mInitUpdateCalled;
   bool        mInitialized;
 
@@ -168,65 +169,63 @@ public:
 
 };
 
-void FlockingApp::prepareSettings( Settings *settings )
-{
-  settings->setWindowSize( APP_WIDTH, APP_HEIGHT );
+void FlockingApp::prepareSettings(Settings *settings) {
+  settings->setWindowSize(APP_WIDTH, APP_HEIGHT);
 }
 
-void FlockingApp::setup()
-{
+void FlockingApp::setup() {
   mInitUpdateCalled	= false;
   mInitialized = false;
 
   // LEAP
-  mListener			= new LeapListener( &mMutex );
+  mListener			= new LeapListener(&mMutex);
   mLeapController		= new Leap::Controller();
-  mLeapController->addListener( *mListener );
-  
+  mLeapController->addListener(*mListener);
+
   // POSITION/VELOCITY FBOS
   mRgba16Format.setColorInternalFormat(GL_RGBA32F_ARB);
-  mRgba16Format.setMinFilter( GL_NEAREST );
-  mRgba16Format.setMagFilter( GL_NEAREST );
+  mRgba16Format.setMinFilter(GL_NEAREST);
+  mRgba16Format.setMagFilter(GL_NEAREST);
   mThisFbo				= 0;
   mPrevFbo				= 1;
-  
+
   // LANTERNS
-  mFingerTipsFbo			= gl::Fbo( MAX_TIPS, 2, mRgba16Format );
-  
+  mFingerTipsFbo			= gl::Fbo(MAX_TIPS, 2, mRgba16Format);
+
   // TEXTURE FORMAT
   gl::Texture::Format mipFmt;
-    mipFmt.enableMipmapping( true );
-    mipFmt.setMinFilter( GL_LINEAR_MIPMAP_LINEAR );    
-    mipFmt.setMagFilter( GL_LINEAR );
-  
+  mipFmt.enableMipmapping(true);
+  mipFmt.setMinFilter(GL_LINEAR_MIPMAP_LINEAR);
+  mipFmt.setMagFilter(GL_LINEAR);
+
   // TEXTURES
-  mLanternGlowTex			= gl::Texture( loadImage( loadResource( RES_LANTERNGLOW_PNG ) ) );
-  mGlowTex				= gl::Texture( loadImage( loadResource( RES_GLOW_PNG ) ) );
-  mNebulaTex				= gl::Texture( loadImage( loadResource( RES_NEBULA_PNG ) ) );
-  mBubbleTex				= gl::Texture( loadImage( loadResource( RES_BUBBLE_PNG ) ) );
-  mBgTex					= gl::Texture( loadImage( loadResource( RES_BG_PNG ) ) );
-  mTitleTex				= gl::Texture( loadImage( loadResource( RES_TITLE_PNG ) ) );
-  
+  mLanternGlowTex			= gl::Texture(loadImage(loadResource(RES_LANTERNGLOW_PNG)));
+  mGlowTex				= gl::Texture(loadImage(loadResource(RES_GLOW_PNG)));
+  mNebulaTex				= gl::Texture(loadImage(loadResource(RES_NEBULA_PNG)));
+  mBubbleTex				= gl::Texture(loadImage(loadResource(RES_BUBBLE_PNG)));
+  mBgTex					= gl::Texture(loadImage(loadResource(RES_BG_PNG)));
+  mTitleTex				= gl::Texture(loadImage(loadResource(RES_TITLE_PNG)));
+
   // LOAD SHADERS
   try {
-    mVelocityShader		= gl::GlslProg( loadResource( RES_PASSTHRU_VERT ),	loadResource( RES_VELOCITY_FRAG ) );
-    mPositionShader		= gl::GlslProg( loadResource( RES_PASSTHRU_VERT ),	loadResource( RES_POSITION_FRAG ) );
-    mLanternShader		= gl::GlslProg( loadResource( RES_LANTERN_VERT ),	loadResource( RES_LANTERN_FRAG ) );
-    mRoomShader			= gl::GlslProg( loadResource( RES_ROOM_VERT ),		loadResource( RES_ROOM_FRAG ) );
-    mShader				= gl::GlslProg( loadResource( RES_VBOPOS_VERT ),	loadResource( RES_VBOPOS_FRAG ) );
-    mGlowShader			= gl::GlslProg( loadResource( RES_PASSTHRU_VERT ),	loadResource( RES_GLOW_FRAG ) );
-    mNebulaShader		= gl::GlslProg( loadResource( RES_PASSTHRU_VERT ),	loadResource( RES_NEBULA_FRAG ) );
-  } catch( gl::GlslProgCompileExc e ) {
+    mVelocityShader		= gl::GlslProg(loadResource(RES_PASSTHRU_VERT),	loadResource(RES_VELOCITY_FRAG));
+    mPositionShader		= gl::GlslProg(loadResource(RES_PASSTHRU_VERT),	loadResource(RES_POSITION_FRAG));
+    mLanternShader		= gl::GlslProg(loadResource(RES_LANTERN_VERT),	loadResource(RES_LANTERN_FRAG));
+    mRoomShader			= gl::GlslProg(loadResource(RES_ROOM_VERT),		loadResource(RES_ROOM_FRAG));
+    mShader				= gl::GlslProg(loadResource(RES_VBOPOS_VERT),	loadResource(RES_VBOPOS_FRAG));
+    mGlowShader			= gl::GlslProg(loadResource(RES_PASSTHRU_VERT),	loadResource(RES_GLOW_FRAG));
+    mNebulaShader		= gl::GlslProg(loadResource(RES_PASSTHRU_VERT),	loadResource(RES_NEBULA_FRAG));
+  } catch (gl::GlslProgCompileExc e) {
     std::cout << e.what() << std::endl;
     quit();
   }
 
   // CONTROLLER
-  mController			= new Controller( MAX_TIPS );
-  
+  mController			= new Controller(MAX_TIPS);
+
   // PERLIN
-  mPerlin				= Perlin( 4 );
-  
+  mPerlin				= Perlin(4);
+
   // MOUSE
   mMousePos			= Vec2f::zero();
   mMouseDownPos		= Vec2f::zero();
@@ -247,22 +246,20 @@ void FlockingApp::setup()
 
   ovrHSWDisplayState hswDisplayState;
   ovrHmd_GetHSWDisplayState(m_Oculus.GetHMD(), &hswDisplayState);
-  if (hswDisplayState.Displayed)
-  {
+  if (hswDisplayState.Displayed) {
     // Dismiss the warning
     ovrHmd_DismissHSWDisplay(m_Oculus.GetHMD());
-  } else
-  {
+  } else {
     // Detect a moderate tap on the side of the HMD.
     ovrTrackingState ts = ovrHmd_GetTrackingState(m_Oculus.GetHMD(), ovr_GetTimeInSeconds());
-    if (ts.StatusFlags & ovrStatus_OrientationTracked)
-    {
+    if (ts.StatusFlags & ovrStatus_OrientationTracked) {
       const OVR::Vector3f v(ts.RawSensorData.Accelerometer.x,
-        ts.RawSensorData.Accelerometer.y,
-        ts.RawSensorData.Accelerometer.z);
+                            ts.RawSensorData.Accelerometer.y,
+                            ts.RawSensorData.Accelerometer.z);
       // Arbitrary value and representing moderate tap on the side of the DK2 Rift.
-      if (v.LengthSq() > 250.f)
+      if (v.LengthSq() > 250.f) {
         ovrHmd_DismissHSWDisplay(m_Oculus.GetHMD());
+      }
     }
   }
 
@@ -270,8 +267,7 @@ void FlockingApp::setup()
   mInitialized = true;
 }
 
-void FlockingApp::initialize()
-{
+void FlockingApp::initialize() {
   gl::disableAlphaBlending();
   gl::disableDepthWrite();
   gl::disableDepthRead();
@@ -292,14 +288,13 @@ void FlockingApp::initialize()
   initVbo();
 }
 
-void FlockingApp::setFboPositions(gl::Fbo fbo)
-{
+void FlockingApp::setFboPositions(gl::Fbo fbo) {
   // FISH POSITION
   Surface32f posSurface(fbo.getTexture());
   Surface32f::Iter it = posSurface.getIter();
-  while (it.line()){
+  while (it.line()) {
     float y = (float)it.y()/(float)it.getHeight() - 0.5f;
-    while (it.pixel()){
+    while (it.pixel()) {
       float per		= (float)it.x()/(float)it.getWidth();
       float angle		= per * (float)M_PI * 2.0f;
       float radius	= 100.0f;
@@ -310,7 +305,7 @@ void FlockingApp::setFboPositions(gl::Fbo fbo)
       it.r() = p.x;
       it.g() = p.y;
       it.b() = p.z;
-      it.a() = Rand::randFloat(0.7f, 1.0f);	// GENERAL EMOTIONAL STATE. 
+      it.a() = Rand::randFloat(0.7f, 1.0f);	// GENERAL EMOTIONAL STATE.
     }
   }
 
@@ -322,13 +317,12 @@ void FlockingApp::setFboPositions(gl::Fbo fbo)
   fbo.unbindFramebuffer();
 }
 
-void FlockingApp::setFboVelocities(gl::Fbo fbo)
-{
+void FlockingApp::setFboVelocities(gl::Fbo fbo) {
   // FISH VELOCITY
   Surface32f velSurface(fbo.getTexture());
   Surface32f::Iter it = velSurface.getIter();
-  while (it.line()){
-    while (it.pixel()){
+  while (it.line()) {
+    while (it.pixel()) {
       float per		= (float)it.x()/(float)it.getWidth();
       float angle		= per * (float)M_PI * 2.0f;
       float cosA		= cos(angle);
@@ -349,8 +343,7 @@ void FlockingApp::setFboVelocities(gl::Fbo fbo)
   fbo.unbindFramebuffer();
 }
 
-void FlockingApp::initVbo()
-{
+void FlockingApp::initVbo() {
   gl::VboMesh::Layout layout;
   layout.setStaticPositions();
   layout.setStaticTexCoords2d();
@@ -587,80 +580,73 @@ void FlockingApp::initVbo()
   mVboMesh.unbindBuffers();
 }
 
-void FlockingApp::mouseDown( MouseEvent event )
-{
+void FlockingApp::mouseDown(MouseEvent event) {
   mMouseDownPos = event.getPos();
   mMousePressed = true;
   mMouseOffset = Vec2f::zero();
 }
 
-void FlockingApp::mouseUp( MouseEvent event )
-{
+void FlockingApp::mouseUp(MouseEvent event) {
   mMousePressed = false;
   mMouseOffset = Vec2f::zero();
 }
 
-void FlockingApp::mouseMove( MouseEvent event )
-{
+void FlockingApp::mouseMove(MouseEvent event) {
   mMousePos = event.getPos();
 }
 
-void FlockingApp::mouseDrag( MouseEvent event )
-{
-  mouseMove( event );
-  mMouseOffset = ( mMousePos - mMouseDownPos );
+void FlockingApp::mouseDrag(MouseEvent event) {
+  mouseMove(event);
+  mMouseOffset = (mMousePos - mMouseDownPos);
 }
 
-void FlockingApp::keyDown( KeyEvent event )
-{
-  if( event.getChar() == 'r' ){
+void FlockingApp::keyDown(KeyEvent event) {
+  if (event.getChar() == 'r') {
     initialize();
-  } else if( event.getChar() == 'f' ){
-    setFullScreen( !isFullScreen() );
+  } else if (event.getChar() == 'f') {
+    setFullScreen(!isFullScreen());
   } else if (event.getChar() == ci::app::KeyEvent::KEY_ESCAPE) {
     quit();
   }
 }
 
-void FlockingApp::update()
-{
+void FlockingApp::update() {
   if (!mInitialized) {
     return;
   }
 
-	if (!mInitUpdateCalled)
-	{
-		mInitUpdateCalled = true;
-	}
+  if (!mInitUpdateCalled) {
+    mInitUpdateCalled = true;
+  }
 
 
   const Matrix4x4f invRotation = m_Oculus.EyeRotation(0).inverse();
 
-	{ // LEAP
-		std::lock_guard<std::mutex> lock(mMutex);
-		const Leap::Frame frame = mLeapController->frame();
-		// CONTROLLER
+  {
+    // LEAP
+    std::lock_guard<std::mutex> lock(mMutex);
+    const Leap::Frame frame = mLeapController->frame();
+    // CONTROLLER
     mController->m_invRot = ci::Matrix44f(invRotation.data());
-		mController->updateLeap(frame.hands());
-	}
+    mController->updateLeap(frame.hands());
+  }
 
-	// CONTROLLER
-	mController->update();
+  // CONTROLLER
+  mController->update();
 
-	gl::disableAlphaBlending();
-	gl::disableDepthRead();
-	gl::disableDepthWrite();
-	gl::color(Color(1, 1, 1));
+  gl::disableAlphaBlending();
+  gl::disableDepthRead();
+  gl::disableDepthWrite();
+  gl::color(Color(1, 1, 1));
 
-	drawIntoVelocityFbo();
-	drawIntoPositionFbo();
+  drawIntoVelocityFbo();
+  drawIntoPositionFbo();
   drawIntoFingerTipsFbo();
 }
 
 
 // FISH VELOCITY
-void FlockingApp::drawIntoVelocityFbo()
-{
+void FlockingApp::drawIntoVelocityFbo() {
   gl::setMatricesWindow(mFboSize, false);
   gl::setViewport(mFboBounds);
 
@@ -691,8 +677,7 @@ void FlockingApp::drawIntoVelocityFbo()
 }
 
 // FISH POSITION
-void FlockingApp::drawIntoPositionFbo()
-{
+void FlockingApp::drawIntoPositionFbo() {
   gl::setMatricesWindow(mFboSize, false);
   gl::setViewport(mFboBounds);
 
@@ -722,19 +707,18 @@ inline cinder::Matrix44f ToMat44f(const Matrix4x4f& m) {
 }
 
 
-void FlockingApp::renderEyeView(int eyeIndex)
-{
+void FlockingApp::renderEyeView(int eyeIndex) {
   const ci::Vec2i window = ci::Vec2i(m_curRect.getSize().x, m_curRect.getSize().y);
 
   gl::setMatricesWindow(window);
   glViewport(m_curRect.x1, m_curRect.y1, m_curRect.getSize().x, m_curRect.getSize().y);
 
-	gl::enableAlphaBlending();
-	gl::enable(GL_TEXTURE_2D);
-	gl::disableDepthRead();
-	gl::disableDepthWrite();
+  gl::enableAlphaBlending();
+  gl::enable(GL_TEXTURE_2D);
+  gl::disableDepthRead();
+  gl::disableDepthWrite();
 
-	mBgTex.bind();
+  mBgTex.bind();
   gl::drawSolidRect(ci::Rectf(0, 0, m_curRect.getSize().x, m_curRect.getSize().y));
   mBgTex.unbind();
   glActiveTexture(0);
@@ -791,14 +775,14 @@ void FlockingApp::renderEyeView(int eyeIndex)
 
   // DRAW LANTERNS
   mLanternShader.bind();
-  mLanternShader.uniform("mvpMatrix", ToMat44f(m_mvpMatrix));
+  mLanternShader.uniform("mvpMatrix", ToMat44f(10.f*m_mvpMatrix));
   mLanternShader.uniform("eyePos", ToVec3f(m_curEyePos));
   mController->drawLanterns(&mLanternShader);
   mLanternShader.unbind();
 
-	if (getElapsedFrames() % 60 == 0){
-		console() << "FPS = " << getAverageFps() << std::endl;
-	}
+  if (getElapsedFrames() % 60 == 0) {
+    console() << "FPS = " << getAverageFps() << std::endl;
+  }
 }
 
 Matrix4x4f TranslationMatrix(const Vector3f& translation) {
@@ -809,25 +793,26 @@ Matrix4x4f TranslationMatrix(const Vector3f& translation) {
   return mat;
 }
 
-void FlockingApp::draw()
-{
-  if (!mInitUpdateCalled){
-		return;
-	}
+void FlockingApp::draw() {
+  if (!mInitUpdateCalled) {
+    return;
+  }
   m_Oculus.BeginFrame();
 
   gl::clear(ColorA(0.3f, 0.1f, 0.1f, 0.0f), true);
   gl::color(ColorA(1.0f, 1.0f, 1.0f, 1.0f));
 
   // Shared render target eye rendering; set up RT once for both eyes.
-  for (int eyeIndex = 0; eyeIndex < ovrEye_Count; eyeIndex++)
-  {
+  for (int eyeIndex = 0; eyeIndex < ovrEye_Count; eyeIndex++) {
     const Vector3f offset(0, 0, 0);
 
     const ovrRecti& rect = m_Oculus.EyeViewport(eyeIndex);
     m_curProjection = m_Oculus.EyeProjection(eyeIndex);
     m_curModelView = m_Oculus.EyeView(eyeIndex);
-    m_curEyePos = m_Oculus.EyePosition(eyeIndex) + offset;
+    m_curModelView.block<3, 1>(0, 3) += 30.75f*(m_curModelView.block<3, 1>(0, 3)
+                                        - m_Oculus.EyeView(1 - eyeIndex).block<3, 1>(0, 3));
+    // m_curEyePos = m_curModelView.block<3, 1>(0, 3);
+    m_curEyePos = Vector3f::Zero();
 
     m_curModelView = TranslationMatrix(offset) *m_curModelView;
 
@@ -853,78 +838,73 @@ void FlockingApp::draw()
   }
 }
 
-void FlockingApp::drawGlows()
-{
+void FlockingApp::drawGlows() {
   mGlowTex.bind();
   mGlowShader.bind();
-  mGlowShader.uniform( "glowTex", 0 );
-  mController->drawGlows( &mGlowShader, ToVec3f(m_billboardRight), ToVec3f(m_billboardUp));
+  mGlowShader.uniform("glowTex", 0);
+  mController->drawGlows(&mGlowShader, ToVec3f(m_billboardRight), ToVec3f(m_billboardUp));
   mGlowShader.unbind();
   mGlowTex.unbind();
   glActiveTexture(0);
 }
 
-void FlockingApp::drawNebulas()
-{
+void FlockingApp::drawNebulas() {
   mNebulaTex.bind();
   mNebulaShader.bind();
-  mNebulaShader.uniform( "nebulaTex", 0 );
+  mNebulaShader.uniform("nebulaTex", 0);
   mController->drawNebulas(&mNebulaShader, ToVec3f(m_billboardRight), ToVec3f(m_billboardUp));
   mNebulaShader.unbind();
   mNebulaTex.unbind();
   glActiveTexture(0);
 }
 
-void FlockingApp::drawBubbles()
-{
+void FlockingApp::drawBubbles() {
   mBubbleTex.bind();
   mGlowShader.bind();
-  mGlowShader.uniform( "glowTex", 0);
+  mGlowShader.uniform("glowTex", 0);
   mController->drawBubbles(&mGlowShader, ToVec3f(m_billboardRight), ToVec3f(m_billboardUp));
   mGlowShader.unbind();
   mBubbleTex.unbind();
   glActiveTexture(0);
 }
 
-void FlockingApp::drawTitle()
-{
-  float alpha = 1.0f - math<float>::max( (float)(getElapsedSeconds()) - 3.0f, 0.0f );
-  
-  if( alpha > 0.0f ){
-    gl::color( ColorA( 1.0f, 1.0f, 1.0f, alpha ) );
-    
+void FlockingApp::drawTitle() {
+  float alpha = 1.0f - math<float>::max((float)(getElapsedSeconds()) - 3.0f, 0.0f);
+
+  if (alpha > 0.0f) {
+    gl::color(ColorA(1.0f, 1.0f, 1.0f, alpha));
+
     float w = (float)mTitleTex.getWidth();
     float h = (float)mTitleTex.getHeight();
-    Rectf r = Rectf( getWindowCenter() - Vec2f( w/2, h/2 ), getWindowCenter() + Vec2f( w/2, h/2 ) );
+    Rectf r = Rectf(getWindowCenter() - Vec2f(w/2, h/2), getWindowCenter() + Vec2f(w/2, h/2));
     mTitleTex.bind();
-    gl::drawSolidRect( r );
+    gl::drawSolidRect(r);
   }
 }
 
 // HOLDS DATA FOR LANTERNS AND PREDATORS
-void FlockingApp::drawIntoFingerTipsFbo()
-{
+void FlockingApp::drawIntoFingerTipsFbo() {
   std::vector<Vec3f> tipPs;	// Positions
   std::vector<float> tipRs;	// Radii
   std::vector<Color> tipCs;	// Colors
   std::vector<float> tipHs;	// Hues
-  
-  for( map<uint32_t,FingerTip>::iterator activeIt = mController->mActiveTips.begin(); activeIt != mController->mActiveTips.end(); ++activeIt ){
+
+  for (map<uint32_t,FingerTip>::iterator activeIt = mController->mActiveTips.begin(); activeIt != mController->mActiveTips.end(); ++activeIt) {
     FingerTip tip = activeIt->second;
-    tipPs.push_back( tip.mPos );
-    tipRs.push_back( tip.mRadius );
-    tipCs.push_back( tip.mColor );
-    tipHs.push_back( tip.mAggression );
+    tipPs.push_back(tip.mPos);
+    tipRs.push_back(tip.mRadius);
+    tipCs.push_back(tip.mColor);
+    tipHs.push_back(tip.mAggression);
   }
-  
-  Surface32f tipsSurface( mFingerTipsFbo.getTexture() );
+
+  Surface32f tipsSurface(mFingerTipsFbo.getTexture());
   Surface32f::Iter it = tipsSurface.getIter();
-  while( it.line() ){
-    while( it.pixel() ){
+  while (it.line()) {
+    while (it.pixel()) {
       int index = it.x();
-      
-      if( it.y() == 0 ){ // set light position
-        if( index < (int)tipPs.size() ){
+
+      if (it.y() == 0) { // set light position
+        if (index < (int)tipPs.size()) {
           it.r() = tipPs[index].x;
           it.g() = tipPs[index].y;
           it.b() = tipPs[index].z;
@@ -936,12 +916,12 @@ void FlockingApp::drawIntoFingerTipsFbo()
           it.a() = 1.0f;
         }
       } else {	// set light color
-        if( index < (int)tipPs.size() ){
+        if (index < (int)tipPs.size()) {
           it.r() = tipCs[index].r;
           it.g() = tipCs[index].g;
           it.b() = tipCs[index].b;
           it.a() = tipHs[index];
-        } else { 
+        } else {
           it.r() = 0.0f;
           it.g() = 0.0f;
           it.b() = 0.0f;
@@ -952,12 +932,12 @@ void FlockingApp::drawIntoFingerTipsFbo()
   }
 
   mFingerTipsFbo.bindFramebuffer();
-  gl::setMatricesWindow( mFingerTipsFbo.getSize(), false );
-  gl::setViewport( mFingerTipsFbo.getBounds() );
-  gl::draw( gl::Texture( tipsSurface ) );
+  gl::setMatricesWindow(mFingerTipsFbo.getSize(), false);
+  gl::setViewport(mFingerTipsFbo.getBounds());
+  gl::draw(gl::Texture(tipsSurface));
   mFingerTipsFbo.unbindFramebuffer();
   glActiveTexture(0);
 }
 
 
-CINDER_APP_BASIC( FlockingApp, RendererGl )
+CINDER_APP_BASIC(FlockingApp, RendererGl)

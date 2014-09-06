@@ -28,7 +28,7 @@ void reactToLanterns( inout vec3 acc, inout float crowded, vec3 _myPos )
 		float distToLantern		= length( dirToLantern );
 		float distToLanternSqrd	= distToLantern * distToLantern; // * 2.0
 		
-		if( AGGRO > 0.0 ){	// ATTRACTED TO LIGHT
+		if( 1.0 > 0.0 ){	// ATTRACTED TO LIGHT
 			if( distToLanternSqrd > minRad && distToLanternSqrd < maxRad ){
 				float distPer = ( ( maxRad - minRad ) / ( distToLanternSqrd ) );
 				float speedPer = 0.04/( numLights + 1.0 );
