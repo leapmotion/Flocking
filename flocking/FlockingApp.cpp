@@ -171,6 +171,7 @@ public:
 
 void FlockingApp::prepareSettings(Settings *settings) {
   settings->setWindowSize(APP_WIDTH, APP_HEIGHT);
+  settings->enableConsoleWindow();
 }
 
 void FlockingApp::setup() {
@@ -775,7 +776,7 @@ void FlockingApp::renderEyeView(int eyeIndex) {
 
   // DRAW LANTERNS
   mLanternShader.bind();
-  mLanternShader.uniform("mvpMatrix", ToMat44f(10.f*m_mvpMatrix));
+  mLanternShader.uniform("mvpMatrix", ToMat44f(m_mvpMatrix));
   mLanternShader.uniform("eyePos", ToVec3f(m_curEyePos));
   mController->drawLanterns(&mLanternShader);
   mLanternShader.unbind();
@@ -803,18 +804,19 @@ void FlockingApp::draw() {
   gl::color(ColorA(1.0f, 1.0f, 1.0f, 1.0f));
 
   // Shared render target eye rendering; set up RT once for both eyes.
-  for (int eyeIndex = 0; eyeIndex < ovrEye_Count; eyeIndex++) {
-    const Vector3f offset(0, 0, 0);
+  for (int eyeIndex = ovrEye_Count - 1; eyeIndex >= 0; --eyeIndex) {
+    
+    // Best setting to align with 3D only:                -84 & 1.0x      ( = 499.5f)
+    // Best setting to align with peripheral passthrough:   0 & 1.6x      ( = 312.0f)
+    // Best setting to align with dragonfly passthrough:    0 & 1.0x      ( = 499.5f)
+    // Of course, in the peripheral case, by bumping the shift to 0, we may be able to turn the magnifier slightly down (somewhere between 1 and 1.6).
 
     const ovrRecti& rect = m_Oculus.EyeViewport(eyeIndex);
     m_curProjection = m_Oculus.EyeProjection(eyeIndex);
     m_curModelView = m_Oculus.EyeView(eyeIndex);
-    m_curModelView.block<3, 1>(0, 3) += 30.75f*(m_curModelView.block<3, 1>(0, 3)
+    m_curModelView.block<3, 1>(0, 3) += 499.5f*(m_curModelView.block<3, 1>(0, 3)
                                         - m_Oculus.EyeView(1 - eyeIndex).block<3, 1>(0, 3));
-    // m_curEyePos = m_curModelView.block<3, 1>(0, 3);
     m_curEyePos = Vector3f::Zero();
-
-    m_curModelView = TranslationMatrix(offset) *m_curModelView;
 
     m_mvpMatrix = m_curProjection * m_curModelView;
 
