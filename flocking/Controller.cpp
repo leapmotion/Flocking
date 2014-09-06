@@ -70,7 +70,7 @@ ci::Vec3f Controller::transformPos(const Leap::Vector& tipPos) const {
   const static float SCALE = 0.4f;
   return Vec3f(tipPos.x, tipPos.y - 200.0f, tipPos.z + 100.0f) * SCALE;
 #else
-  const static float SCALE = 1.0f;
+  const static float SCALE = 0.2f;
   return m_invRot.transformPoint(Vec3f(-tipPos.x, -tipPos.z, -tipPos.y - 84.0f)) * SCALE;
 #endif
 }

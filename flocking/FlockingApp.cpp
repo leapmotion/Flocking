@@ -171,7 +171,7 @@ public:
 
 void FlockingApp::prepareSettings(Settings *settings) {
   settings->setWindowSize(APP_WIDTH, APP_HEIGHT);
-  settings->enableConsoleWindow();
+  // settings->enableConsoleWindow();
 }
 
 void FlockingApp::setup() {
@@ -810,11 +810,15 @@ void FlockingApp::draw() {
     // Best setting to align with peripheral passthrough:   0 & 1.6x      ( = 312.0f)
     // Best setting to align with dragonfly passthrough:    0 & 1.0x      ( = 499.5f)
     // Of course, in the peripheral case, by bumping the shift to 0, we may be able to turn the magnifier slightly down (somewhere between 1 and 1.6).
+    
+    const float LEAP_SCALE = 0.005f; // mm (Note the scale-down by 0.2x that was done in Controller.cpp)
+    const float OCULUS_SCALE = 1.0f; // meters
+    const float MULTIPLIER = 0.5f*(OCULUS_SCALE/LEAP_SCALE - 1.0f);
 
     const ovrRecti& rect = m_Oculus.EyeViewport(eyeIndex);
     m_curProjection = m_Oculus.EyeProjection(eyeIndex);
     m_curModelView = m_Oculus.EyeView(eyeIndex);
-    m_curModelView.block<3, 1>(0, 3) += 499.5f*(m_curModelView.block<3, 1>(0, 3)
+    m_curModelView.block<3, 1>(0, 3) += MULTIPLIER*(m_curModelView.block<3, 1>(0, 3)
                                         - m_Oculus.EyeView(1 - eyeIndex).block<3, 1>(0, 3));
     m_curEyePos = Vector3f::Zero();
 
