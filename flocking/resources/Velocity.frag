@@ -126,6 +126,11 @@ void main()
 	
 	reactToLanterns( acc, crowded, myPos );
 	
+	vec3 dirToOrigin		= myPos;
+	float distToOrigin		= length( myPos );
+	float distToOriginSqrd	= distToOrigin * distToOrigin; // * 2.0;
+	acc += normalize( dirToOrigin ) / distToOriginSqrd * 1000.0;
+
 	myCrowd -= ( myCrowd - crowded ) * ( 0.1 * dt );
 	
 	// MODULATE MYCROWD MULTIPLIER AND GRAVITY FOR INTERESTING DERIVATIONS
