@@ -182,6 +182,7 @@ void FlockingApp::setup() {
   mListener			= new LeapListener(&mMutex);
   mLeapController		= new Leap::Controller();
   mLeapController->addListener(*mListener);
+  mLeapController->setPolicyFlags(Leap::Controller::POLICY_OPTIMIZE_HMD);
 
   // POSITION/VELOCITY FBOS
   mRgba16Format.setColorInternalFormat(GL_RGBA32F_ARB);
@@ -719,9 +720,9 @@ void FlockingApp::renderEyeView(int eyeIndex) {
   gl::disableDepthRead();
   gl::disableDepthWrite();
 
-  mBgTex.bind();
-  gl::drawSolidRect(ci::Rectf(0, 0, m_curRect.getSize().x, m_curRect.getSize().y));
-  mBgTex.unbind();
+  // mBgTex.bind();
+  // gl::drawSolidRect(ci::Rectf(0, 0, m_curRect.getSize().x, m_curRect.getSize().y));
+  // mBgTex.unbind();
   glActiveTexture(0);
 
   glViewport(m_curRect.x1, m_curRect.y1, m_curRect.getSize().x, m_curRect.getSize().y);
@@ -800,7 +801,8 @@ void FlockingApp::draw() {
   }
   m_Oculus.BeginFrame();
 
-  gl::clear(ColorA(0.3f, 0.1f, 0.1f, 0.0f), true);
+  gl::clear(ColorA(0.0f, 0.12f, 0.18f, 0.0f), true);
+  // gl::clear(ColorA(0.0f, 0.0f, 0.0f, 0.0f), true);
   gl::color(ColorA(1.0f, 1.0f, 1.0f, 1.0f));
 
   // Shared render target eye rendering; set up RT once for both eyes.
@@ -811,12 +813,13 @@ void FlockingApp::draw() {
     // Best setting to align with dragonfly passthrough:    0 & 1.0x      ( = 499.5f)
     // Of course, in the peripheral case, by bumping the shift to 0, we may be able to turn the magnifier slightly down (somewhere between 1 and 1.6).
     
-    const float LEAP_SCALE = 0.005f; // mm (Note the scale-down by 0.2x that was done in Controller.cpp)
+    const float LEAP_SCALE = 0.01f; // mm (Note the scale-down by 0.2x that was done in Controller.cpp)
     const float OCULUS_SCALE = 1.0f; // meters
     const float MULTIPLIER = 0.5f*(OCULUS_SCALE/LEAP_SCALE - 1.0f);
 
     const ovrRecti& rect = m_Oculus.EyeViewport(eyeIndex);
     m_curProjection = m_Oculus.EyeProjection(eyeIndex);
+    m_curProjection.block<4, 3>(0, 0) *= OCULUS_SCALE/LEAP_SCALE;
     m_curModelView = m_Oculus.EyeView(eyeIndex);
     m_curModelView.block<3, 1>(0, 3) += MULTIPLIER*(m_curModelView.block<3, 1>(0, 3)
                                         - m_Oculus.EyeView(1 - eyeIndex).block<3, 1>(0, 3));
