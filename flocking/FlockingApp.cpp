@@ -93,7 +93,7 @@ public:
   void				drawGlows();
   void				drawNebulas();
   void				drawBubbles();
-  void				drawTitle();
+  void				drawTitle(const ci::Vec2i& window);
   virtual void		draw();
   void				    renderEyeView(int eyeIndex);
 
@@ -782,6 +782,28 @@ void FlockingApp::renderEyeView(int eyeIndex) {
   mController->drawLanterns(&mLanternShader);
   mLanternShader.unbind();
 
+  // SCREEN SPACE
+  //drawTitle(window);
+  gl::disableDepthRead();
+  gl::disableDepthWrite();
+
+  if (false) {	// DRAW POSITION AND VELOCITY FBOS
+    gl::color(Color::white());
+    gl::setMatricesWindow(window);
+    gl::enable(GL_TEXTURE_2D);
+    mPositionFbos[ mThisFbo ].bindTexture();
+    gl::drawSolidRect(Rectf(5.0f, 5.0f, 105.0f, 105.0f));
+
+    mPositionFbos[ mPrevFbo ].bindTexture();
+    gl::drawSolidRect(Rectf(106.0f, 5.0f, 206.0f, 105.0f));
+
+    mVelocityFbos[ mThisFbo ].bindTexture();
+    gl::drawSolidRect(Rectf(5.0f, 106.0f, 105.0f, 206.0f));
+
+    mVelocityFbos[ mPrevFbo ].bindTexture();
+    gl::drawSolidRect(Rectf(106.0f, 106.0f, 206.0f, 206.0f));
+  }
+
   if (getElapsedFrames() % 60 == 0) {
     console() << "FPS = " << getAverageFps() << std::endl;
   }
@@ -841,7 +863,7 @@ void FlockingApp::draw() {
   m_Oculus.EndFrame();
 
   static bool first = true;
-  if (first && ci::app::getElapsedSeconds() > 1.0) {
+  if (first && ci::app::getElapsedSeconds() > 2.5) {
     initialize();
     first = false;
   }
@@ -877,7 +899,13 @@ void FlockingApp::drawBubbles() {
   glActiveTexture(0);
 }
 
-void FlockingApp::drawTitle() {
+void FlockingApp::drawTitle(const ci::Vec2i& window) {
+  gl::setMatricesWindow( window );
+  gl::enableAlphaBlending();
+  gl::enable( GL_TEXTURE_2D );
+  gl::disableDepthRead();
+  gl::disableDepthWrite();
+
   float alpha = 1.0f - math<float>::max((float)(getElapsedSeconds()) - 3.0f, 0.0f);
 
   if (alpha > 0.0f) {
@@ -885,7 +913,7 @@ void FlockingApp::drawTitle() {
 
     float w = (float)mTitleTex.getWidth();
     float h = (float)mTitleTex.getHeight();
-    Rectf r = Rectf(getWindowCenter() - Vec2f(w/2, h/2), getWindowCenter() + Vec2f(w/2, h/2));
+    Rectf r = Rectf(Vec2f(0, 0), window);
     mTitleTex.bind();
     gl::drawSolidRect(r);
   }
