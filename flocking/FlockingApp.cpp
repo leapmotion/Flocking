@@ -841,7 +841,7 @@ void FlockingApp::draw() {
 
     const ovrRecti& rect = m_Oculus.EyeViewport(eyeIndex);
     m_curProjection = m_Oculus.EyeProjection(eyeIndex);
-    m_curProjection.block<4, 3>(0, 0) *= OCULUS_SCALE/LEAP_SCALE;
+    m_curProjection.block<4, 3>(0, 0) *= LEAP_SCALE/OCULUS_SCALE;
     m_curModelView = m_Oculus.EyeView(eyeIndex);
     m_curModelView.block<3, 1>(0, 3) += MULTIPLIER*(m_curModelView.block<3, 1>(0, 3)
                                         - m_Oculus.EyeView(1 - eyeIndex).block<3, 1>(0, 3));
