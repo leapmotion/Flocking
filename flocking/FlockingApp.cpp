@@ -49,6 +49,10 @@ using namespace OVR;
 #include "GLController.h"
 #include "OculusVR.h"
 
+#if _WIN32
+#include "Mirror.h"
+#endif
+
 #include <cassert>
 #include <iostream>
 
@@ -70,11 +74,11 @@ using namespace std;
 #define P_FBO_DIM		5
 #define MAX_TIPS		10
 
-class FlockingApp : public AppBasic
-{
+class FlockingApp : public AppBasic {
 public:
   virtual void		prepareSettings(Settings *settings);
   virtual void		setup();
+  virtual void		shutdown();
   void				adjustFboDim(int offset);
   void				initialize();
   void				setFboPositions(gl::Fbo fbo);
@@ -167,6 +171,8 @@ public:
   SFMLController m_SFMLController;
   GLController m_GLController;
 
+  // For software window mirroring with Oculus
+  std::thread mThread;
 };
 
 void FlockingApp::prepareSettings(Settings *settings) {
@@ -175,6 +181,9 @@ void FlockingApp::prepareSettings(Settings *settings) {
 }
 
 void FlockingApp::setup() {
+#if _WIN32
+  mThread = std::thread(RunMirror, getRenderer()->getHwnd());
+#endif
   mInitUpdateCalled	= false;
   mInitialized = false;
 
@@ -267,6 +276,12 @@ void FlockingApp::setup() {
 
   initialize();
   mInitialized = true;
+}
+
+void FlockingApp::shutdown() {
+  if (mThread.joinable()) {
+    mThread.join();
+  }
 }
 
 void FlockingApp::initialize() {
@@ -829,12 +844,12 @@ void FlockingApp::draw() {
 
   // Shared render target eye rendering; set up RT once for both eyes.
   for (int eyeIndex = ovrEye_Count - 1; eyeIndex >= 0; --eyeIndex) {
-    
+
     // Best setting to align with 3D only:                -84 & 1.0x      ( = 499.5f)
     // Best setting to align with peripheral passthrough:   0 & 1.6x      ( = 312.0f)
     // Best setting to align with dragonfly passthrough:    0 & 1.0x      ( = 499.5f)
     // Of course, in the peripheral case, by bumping the shift to 0, we may be able to turn the magnifier slightly down (somewhere between 1 and 1.6).
-    
+
     const float LEAP_SCALE = 0.01f; // mm (Note the scale-down by 0.2x that was done in Controller.cpp)
     const float OCULUS_SCALE = 1.0f; // meters
     const float MULTIPLIER = 0.5f*(OCULUS_SCALE/LEAP_SCALE - 1.0f);
@@ -900,9 +915,9 @@ void FlockingApp::drawBubbles() {
 }
 
 void FlockingApp::drawTitle(const ci::Vec2i& window) {
-  gl::setMatricesWindow( window );
+  gl::setMatricesWindow(window);
   gl::enableAlphaBlending();
-  gl::enable( GL_TEXTURE_2D );
+  gl::enable(GL_TEXTURE_2D);
   gl::disableDepthRead();
   gl::disableDepthWrite();
 

@@ -54,6 +54,8 @@ SET(TARGET_SRC
   FingerTip.h   
   Nebula.h        
   Room.h
+  Mirror.cpp
+  Mirror.h
 )
 
 set_source_files_properties( Resources.rc PROPERTIES LANGUAGE RC )
@@ -89,3 +91,7 @@ target_link_libraries(${TARGET_TARGETNAME} PUBLIC	Ws2_32.lib) # Oculus's HACK (n
 
 target_link_libraries(${TARGET_TARGETNAME} PUBLIC optimized ${Cinder_LIBRARY_RELEASE}) # OUR hack
 target_link_libraries(${TARGET_TARGETNAME} PUBLIC debug ${Cinder_LIBRARY_DEBUG}) # OUR hack
+
+if(${CMAKE_CXX_COMPILER_ID} STREQUAL "MSVC")
+  target_link_libraries(${TARGET_TARGETNAME} PUBLIC comctl32.lib Dwmapi.lib)
+endif()
