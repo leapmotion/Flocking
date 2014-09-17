@@ -173,6 +173,7 @@ public:
 
   // For software window mirroring with Oculus
   std::thread mThread;
+  HWND mirrorHwnd;
 };
 
 void FlockingApp::prepareSettings(Settings *settings) {
@@ -182,7 +183,7 @@ void FlockingApp::prepareSettings(Settings *settings) {
 
 void FlockingApp::setup() {
 #if _WIN32
-  mThread = std::thread(RunMirror, getRenderer()->getHwnd());
+  mThread = std::thread(RunMirror, getRenderer()->getHwnd(), std::ref(mirrorHwnd));
 #endif
   mInitUpdateCalled	= false;
   mInitialized = false;
@@ -280,6 +281,7 @@ void FlockingApp::setup() {
 
 void FlockingApp::shutdown() {
   if (mThread.joinable()) {
+    PostMessage(mirrorHwnd, WM_CLOSE, 0, 0);
     mThread.join();
   }
 }
