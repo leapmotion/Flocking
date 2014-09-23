@@ -25,6 +25,7 @@ if( SHOW_CONSOLE AND ${CMAKE_CXX_COMPILER_ID} STREQUAL "MSVC" )
  find_library(Cinder_LIBRARY_RELEASE "cinder-v120.lib" HINTS "${Cinder_LIBRARY_DIR}")
  find_library(Cinder_LIBRARY_DEBUG "cinder-v120_d.lib" HINTS "${Cinder_LIBRARY_DIR}")
 elseif( APPLE )
+ message("cinder root dir is ${Cinder_ROOT_DIR}")
  find_library(Cinder_LIBRARY_RELEASE "libcinder.a" HINTS "${Cinder_ROOT_DIR}/lib")
  find_library(Cinder_LIBRARY_DEBUG "libcinder_d.a" HINTS "${Cinder_ROOT_DIR}/lib")
 endif()
@@ -62,7 +63,7 @@ SET(TARGET_SRC
   Mirror.h
 )
 
-if(${CMAKE_SYSTEM_NAME} MATCHES "Darwin")
+if( ${CMAKE_SYSTEM_NAME} MATCHES "Darwin" )
     set(_add_executable_options "MACOSX_BUNDLE")
     if (NOT CMAKE_OSX_ARCHITECTURES)
       set(CMAKE_OSX_ARCHITECTURES "x86_64" CACHE STRING "Mac OS X build architectures" FORCE)
@@ -72,13 +73,13 @@ if(${CMAKE_SYSTEM_NAME} MATCHES "Darwin")
     endif()
 endif()
 
-if(${CMAKE_CXX_COMPILER_ID} MATCHES "Clang")
-  set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -stdlib=libc++ -Wall -Werror -Wno-uninitialized -Wno-unused-private-field -Wno-reorder -Wno-unused-variable”)
+if( ${CMAKE_CXX_COMPILER_ID} MATCHES "Clang" )
+  set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -stdlib=libc++ -Wall -Werror -Wno-uninitialized -Wno-unused-private-field -Wno-reorder -Wno-unused-variable")
 
   # Locate all recourses
   FILE(GLOB COPY_RESOURCES ${PROJECT_SOURCE_DIR}/resources/*)
   SET_SOURCE_FILES_PROPERTIES(
-    "${COPY_RESOURCES}"
+    ${COPY_RESOURCES}
     PROPERTIES
     MACOSX_PACKAGE_LOCATION Resources
   )
@@ -94,9 +95,9 @@ if(${CMAKE_CXX_COMPILER_ID} MATCHES "Clang")
   SET_TARGET_PROPERTIES(
     ${TARGET_TARGETNAME}
     PROPERTIES
-    RESOURCE "${COPY_RESOURCES}"
+    RESOURCE ${COPY_RESOURCES}
   )
-elseif ( SHOW_CONSOLE AND ${CMAKE_CXX_COMPILER_ID} STREQUAL "MSVC" )
+elseif ( ${CMAKE_CXX_COMPILER_ID} STREQUAL "MSVC" )
   set_source_files_properties( Resources.rc PROPERTIES LANGUAGE RC )
  
   add_executable(${TARGET_TARGETNAME} WIN32 ${TARGET_SRC})

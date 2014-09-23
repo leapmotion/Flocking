@@ -27,25 +27,6 @@
 #define __GLEW_H__
 #define GLEW_STATIC
 
-/**
-#include "EigenTypes.h"
-#include "OVR.h"
-#define __glew_h__
-#define __GLEW_H__
-#define GLEW_STATIC
-#include "GL/glew.h"
-
-#define OVR_OS_WIN32
-
-#include "OVR_CAPI_GL.h"
-#include "Kernel/OVR_Math.h"
-#include "SDL.h"
-#include "SDL_syswm.h"
-
-using namespace OVR;
-*/
-
-#include "SFMLController.h"
 #include "GLController.h"
 #include "OculusVR.h"
 
@@ -69,7 +50,7 @@ using namespace std;
 #define          SDK_RENDER 1
 
 #define APP_WIDTH		1280
-#define APP_HEIGHT		720
+#define APP_HEIGHT	720
 #define FBO_DIM			50
 #define P_FBO_DIM		5
 #define MAX_TIPS		10
@@ -168,7 +149,6 @@ public:
   Vector3f m_billboardUp;
 
   OculusVR m_Oculus;
-  SFMLController m_SFMLController;
   GLController m_GLController;
 
   // For software window mirroring with Oculus
