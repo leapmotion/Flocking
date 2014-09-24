@@ -20,15 +20,19 @@ find_path(Cinder_INCLUDE_DIR
 			HINTS "${Cinder_ROOT_DIR}"
 			PATH_SUFFIXES "include")
 
-set(Cinder_LIBRARY_DIR ${Cinder_ROOT_DIR}/lib/msw/x86)
-
-find_library(Cinder_LIBRARY_RELEASE "cinder-v120.lib" HINTS "${Cinder_LIBRARY_DIR}")
-find_library(Cinder_LIBRARY_DEBUG "cinder-v120_d.lib" HINTS "${Cinder_LIBRARY_DIR}")
+if( SHOW_CONSOLE AND ${CMAKE_CXX_COMPILER_ID} STREQUAL "MSVC" )
+ set(Cinder_LIBRARY_DIR ${Cinder_ROOT_DIR}/lib/msw/x86)
+ find_library(Cinder_LIBRARY_RELEASE "cinder-v120.lib" HINTS "${Cinder_LIBRARY_DIR}")
+ find_library(Cinder_LIBRARY_DEBUG "cinder-v120_d.lib" HINTS "${Cinder_LIBRARY_DIR}")
+elseif( APPLE )
+ find_library(Cinder_LIBRARY_RELEASE "libcinder.a" HINTS "${Cinder_ROOT_DIR}/lib")
+ find_library(Cinder_LIBRARY_DEBUG "libcinder_d.a" HINTS "${Cinder_ROOT_DIR}/lib")
+endif()
 
 include_directories(
     ${Cinder_ROOT_DIR}/include
-	${Cinder_ROOT_DIR}/boost
-   )
+    ${Cinder_ROOT_DIR}/boost
+)
 
 SET(TARGET_SRC
   Bubble.cpp
@@ -58,40 +62,102 @@ SET(TARGET_SRC
   Mirror.h
 )
 
-set_source_files_properties( Resources.rc PROPERTIES LANGUAGE RC )
+if(${CMAKE_SYSTEM_NAME} MATCHES "Darwin")
+    set(_add_executable_options "MACOSX_BUNDLE")
+    if (NOT CMAKE_OSX_ARCHITECTURES)
+      set(CMAKE_OSX_ARCHITECTURES "x86_64" CACHE STRING "Mac OS X build architectures" FORCE)
+    endif()
+    if (NOT CMAKE_OSX_SYSROOT)
+      set(CMAKE_OSX_SYSROOT "macosx10.8" CACHE STRING "Mac OS X build environment" FORCE)
+    endif()
+endif()
 
-add_executable(${TARGET_TARGETNAME} WIN32 ${TARGET_SRC})
+if(${CMAKE_CXX_COMPILER_ID} MATCHES "Clang")
+  set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -stdlib=libc++ -Wall -Werror -Wno-uninitialized -Wno-unused-private-field -Wno-reorder -Wno-unused-variable”)
 
-add_definitions(-DUNICODE)
+  # Locate all recourses
+  FILE(GLOB COPY_RESOURCES ${PROJECT_SOURCE_DIR}/resources/*)
+  SET_SOURCE_FILES_PROPERTIES(
+    "${COPY_RESOURCES}"
+    PROPERTIES
+    MACOSX_PACKAGE_LOCATION Resources
+  )
 
-### Set compiler flags ####
-set(CMAKE_CXX_FLAGS_RELEASE "${CMAKE_CXX_FLAGS_RELEASE} /MT") # Cinder's HACK
-set(CMAKE_CXX_FLAGS_DEBUG "${CMAKE_CXX_FLAGS_DEBUG} /MT") # Cinder's HACK
-STRING (REGEX REPLACE "/RTC(su|[1su])" "" CMAKE_CXX_FLAGS_DEBUG "${CMAKE_CXX_FLAGS_DEBUG}") # Remove RTC so we can use Debug build
+  add_executable(
+    ${TARGET_TARGETNAME} 
+    ${_add_executable_options} 
+    ${TARGET_SRC} 
+    ${COPY_RESOURCES} 
+  )
 
-#### Set Linker flags ####
-set(CMAKE_EXE_LINKER_FLAGS "${CMAKE_EXE_LINKER_FLAGS} /LIBPATH:${Cinder_LIBRARY_DIR}") # Cinder's HACK: Needed to find the boost libraries
-set(CMAKE_EXE_LINKER_FLAGS_DEBUG "${CMAKE_EXE_LINKER_FLAGS_DEBUG} /NODEFAULTLIB:LIBCMT") #  Cinder's HACK: This is in platform too so it's probably good
+  # Add resources to application bundle target
+  SET_TARGET_PROPERTIES(
+    ${TARGET_TARGETNAME}
+    PROPERTIES
+    RESOURCE "${COPY_RESOURCES}"
+  )
+elseif ( SHOW_CONSOLE AND ${CMAKE_CXX_COMPILER_ID} STREQUAL "MSVC" )
+  set_source_files_properties( Resources.rc PROPERTIES LANGUAGE RC )
+ 
+  add_executable(${TARGET_TARGETNAME} WIN32 ${TARGET_SRC})
+ 
+  ### Set compiler flags and definitions ####
+  
+  add_definitions(-DUNICODE)
+  
+  # Cinder's HACK
+  set(CMAKE_CXX_FLAGS_RELEASE "${CMAKE_CXX_FLAGS_RELEASE} /MT")
+  
+  # Cinder's HACK
+  set(CMAKE_CXX_FLAGS_DEBUG "${CMAKE_CXX_FLAGS_DEBUG} /MT")
+
+  # Remove RTC so we can use Debug build
+  STRING (REGEX REPLACE "/RTC(su|[1su])" "" CMAKE_CXX_FLAGS_DEBUG "${CMAKE_CXX_FLAGS_DEBUG}")
+  
+  #### Set Linker flags ####
+
+  # Cinder's HACK: Needed to find the boost libraries
+  set(CMAKE_EXE_LINKER_FLAGS "${CMAKE_EXE_LINKER_FLAGS} /LIBPATH:${Cinder_LIBRARY_DIR}") 
+
+  # Cinder's HACK: This is in platform too so it's probably good
+  set(CMAKE_EXE_LINKER_FLAGS_DEBUG "${CMAKE_EXE_LINKER_FLAGS_DEBUG} /NODEFAULTLIB:LIBCMT")
+endif()
 
 find_package(Components)
-# The target_link_components function finds and links exactly the minimal set of libraries
-# needed by the specified components.
-#target_link_components(${TARGET_TARGETNAME} PUBLIC Application GLController GLShaderLoader GLTexture2Loader )
-target_link_components(${TARGET_TARGETNAME} PUBLIC Application GLController GLShaderLoader OculusVR Primitives SFMLController)
+target_link_components(
+  ${TARGET_TARGETNAME} PUBLIC
+  Application
+  GLController
+  GLShaderLoader
+  OculusVR
+  Primitives
+)
 
 target_package(${TARGET_TARGETNAME} Leap LINK_TYPE PUBLIC)
 target_package(${TARGET_TARGETNAME} OculusSDK LINK_TYPE PUBLIC)
+target_package(${TARGET_TARGETNAME} Glew LINK_TYPE PUBLIC)
+target_package(${TARGET_TARGETNAME} SDL LINK_TYPE PUBLIC)
+target_package(${TARGET_TARGETNAME} Eigen LINK_TYPE PUBLIC)
 
-#target_package(${TARGET_TARGETNAME} Glew LINK_TYPE PUBLIC)
-#target_package(${TARGET_TARGETNAME} SDL LINK_TYPE PUBLIC)
-#target_package(${TARGET_TARGETNAME} Eigen LINK_TYPE PUBLIC)
-
-target_link_libraries(${TARGET_TARGETNAME} PUBLIC winmm.lib) # Oculus's HACK (not ours)
-target_link_libraries(${TARGET_TARGETNAME} PUBLIC	Ws2_32.lib) # Oculus's HACK (not ours)
-
-target_link_libraries(${TARGET_TARGETNAME} PUBLIC optimized ${Cinder_LIBRARY_RELEASE}) # OUR hack
-target_link_libraries(${TARGET_TARGETNAME} PUBLIC debug ${Cinder_LIBRARY_DEBUG}) # OUR hack
-
-if(${CMAKE_CXX_COMPILER_ID} STREQUAL "MSVC")
-  target_link_libraries(${TARGET_TARGETNAME} PUBLIC comctl32.lib Dwmapi.lib)
+if (${CMAKE_CXX_COMPILER_ID} MATCHES "Clang")
+  target_link_libraries(
+		${TARGET_TARGETNAME} 
+		PUBLIC optimized ${Cinder_LIBRARY_RELEASE}
+		PUBLIC debug ${Cinder_LIBRARY_DEBUG}
+		"-framework Cocoa"
+		"-framework OpenGL"
+		"-framework Carbon"
+		"-framework CoreVideo"
+		"-framework QTKit"
+		"-framework Accelerate"
+		"-framework AudioToolbox"
+		"-framework AudioUnit"
+		"-framework CoreAudio")
+elseif (${CMAKE_CXX_COMPILER_ID} STREQUAL "MSVC")
+  target_link_libraries(
+		${TARGET_TARGETNAME} PUBLIC winmm.lib      # Oculus's HACK
+		PUBLIC Ws2_32.lib  			   # Oculus's HACK
+		PUBLIC optimized ${Cinder_LIBRARY_RELEASE} # OUR hack
+		PUBLIC debug ${Cinder_LIBRARY_DEBUG}       # OUR hack
+		PUBLIC comctl32.lib Dwmapi.lib)
 endif()
