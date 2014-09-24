@@ -59,7 +59,9 @@ class FlockingApp : public AppBasic {
 public:
   virtual void		prepareSettings(Settings *settings);
   virtual void		setup();
+#if _WIN32
   virtual void		shutdown();
+#endif
   void				adjustFboDim(int offset);
   void				initialize();
   void				setFboPositions(gl::Fbo fbo);
@@ -152,8 +154,10 @@ public:
   GLController m_GLController;
 
   // For software window mirroring with Oculus
+#if _WIN32
   std::thread mThread;
   HWND mirrorHwnd;
+#endif
 };
 
 void FlockingApp::prepareSettings(Settings *settings) {
@@ -259,12 +263,14 @@ void FlockingApp::setup() {
   mInitialized = true;
 }
 
+#if _WIN32
 void FlockingApp::shutdown() {
   if (mThread.joinable()) {
     PostMessage(mirrorHwnd, WM_CLOSE, 0, 0);
     mThread.join();
   }
 }
+#endif
 
 void FlockingApp::initialize() {
   gl::disableAlphaBlending();

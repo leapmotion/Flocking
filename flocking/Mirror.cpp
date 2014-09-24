@@ -1,3 +1,4 @@
+#if _WIN32
 #include "Mirror.h"
 
 #include <windows.h>
@@ -150,3 +151,4 @@ void RunMirror(HWND parentHwnd, HWND& outHwnd) {
     CoUninitialize();
   }
 }
+#endif
