@@ -39,7 +39,7 @@ SET(TARGET_SRC
   Bubble.cpp
   FlockingApp.cpp   
   Nebula.cpp    
-  SoundController.cpp
+  #SoundController.cpp
   Controller.cpp  
   Glow.cpp          
   Predator.cpp
@@ -50,7 +50,7 @@ SET(TARGET_SRC
   Bubble.h      
   Glow.h          
   Predator.h   
-  SoundController.h
+  #SoundController.h
   Controller.h  
   LeapListener.h  
   Resources.h
